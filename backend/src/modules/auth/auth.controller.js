@@ -1,35 +1,16 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { sendSuccess } from "../../utils/response.js";
+import { AuthService } from "./auth.service.js";
 
 export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
-  // mock login dulu
-  if (email !== "test@epson.com" || password !== "123456") {
-    return res.status(401).json({
-      success: false,
-      error: { message: "Invalid credentials" },
-    });
-  }
-
-  res.json({
-    success: true,
-    data: {
-      user: {
-        id: 1,
-        email,
-        role: "USER",
-      },
-      token: "mock-jwt-token",
-    },
-  });
+  const data = await AuthService.login(req.body);
+  return sendSuccess(res, data);
 });
 
 export const me = asyncHandler(async (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      id: 1,
-      email: "test@epson.com",
-    },
-  });
+  return sendSuccess(res, AuthService.me(req.user));
+});
+
+export const logout = asyncHandler(async (req, res) => {
+  return sendSuccess(res, AuthService.logout());
 });

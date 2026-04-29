@@ -4,7 +4,7 @@ export const healthCheck = (req, res) => {
     data: {
       status: "ok",
       service: "epson-helpdesk-api",
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     },
   });
 };

@@ -1,13 +1,194 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  HELPDESK
+}
+
+enum ChatSessionStatus {
+  ACTIVE
+  RESOLVED
+  ESCALATED
+}
+
+enum MessageSender {
+  USER
+  AI
+  SYSTEM
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+}
+
+model User {
+  id                String             @id @default(uuid())
+  employeeId        String             @unique
+  name              String
+  email             String             @unique
+  passwordHash      String
+  role              UserRole           @default(USER)
+  department        String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  chatSessions      ChatSession[]
+  uploadedFiles     UploadedFile[]
+  escalationTickets EscalationTicket[]
+
+  @@index([role])
+}
+
+model IssueCategory {
+  id                 String               @id @default(uuid())
+  name               String               @unique
+  description        String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  chatSessions       ChatSession[]
+  knowledgeDocuments KnowledgeDocument[]
+  escalationTickets  EscalationTicket[]
+}
+
+model ChatSession {
+  id                String             @id @default(uuid())
+  userId            String
+  categoryId        String?
+  title             String
+  status            ChatSessionStatus  @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category          IssueCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  messages          ChatMessage[]
+  escalationTickets EscalationTicket[]
+
+  @@index([userId, createdAt])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model ChatMessage {
+  id              String         @id @default(uuid())
+  sessionId       String
+  sender          MessageSender
+  messageText     String         @db.Text
+  imageId         String?
+  confidenceScore Float?
+  responseTimeMs  Int?
+  createdAt       DateTime       @default(now())
+  session         ChatSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  image           UploadedFile?  @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, createdAt])
+  @@index([sender])
+}
+
+model UploadedFile {
+  id           String        @id @default(uuid())
+  userId       String
+  originalName String
+  storedName   String        @unique
+  mimeType     String
+  size         Int
+  storagePath  String
+  createdAt    DateTime      @default(now())
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     ChatMessage[]
+
+  @@index([userId, createdAt])
+}
+
+model KnowledgeDocument {
+  id                 String              @id @default(uuid())
+  categoryId         String?
+  title              String
+  source             String?
+  content            String              @db.Text
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  category           IssueCategory?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  chunks             KnowledgeChunk[]
+  suggestedQuestions SuggestedQuestion[]
+
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+model KnowledgeChunk {
+  id         String                 @id @default(uuid())
+  documentId String
+  chunkText  String                 @db.Text
+  embedding  Unsupported("vector")?
+  metadata   Json?
+  createdAt  DateTime               @default(now())
+  document   KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model SuggestedQuestion {
+  id         String             @id @default(uuid())
+  documentId String?
+  question   String
+  category   String?
+  createdAt  DateTime           @default(now())
+  document   KnowledgeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([category])
+}
+
+model EscalationTicket {
+  id        String          @id @default(uuid())
+  sessionId String
+  userId    String
+  categoryId String?
+  summary   String          @db.Text
+  status    TicketStatus    @default(OPEN)
+  priority  TicketPriority  @default(MEDIUM)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  session   ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  IssueCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  emailLogs EmailLog[]
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model EmailLog {
+  id             String            @id @default(uuid())
+  ticketId       String?
+  recipientEmail String
+  subject        String
+  status         EmailStatus
+  sentAt         DateTime          @default(now())
+  ticket         EscalationTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@index([status])
 }
