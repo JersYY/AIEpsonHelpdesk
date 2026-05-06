@@ -2,8 +2,6 @@
 
 Backend API untuk sistem helpdesk internal Epson berbasis AI/RAG. Backend mendukung auth JWT, chat troubleshooting, upload gambar defect, RAG dengan Gemini embeddings + pgvector, escalation ticket, summary email via Mailpit/SMTP, knowledge base admin, dan analytics.
 
-Catatan scope: panduan ini fokus ke backend. Frontend tidak termasuk bagian yang perlu dipush untuk perubahan backend-only.
-
 ## Versi Kompatibel
 
 Versi yang sudah dites di mesin lokal:
@@ -31,7 +29,6 @@ aiHelpdeskEpson/
     API.md
     DEMO.md
     RAG_GEMINI.md
-  frontend/   # tidak dibahas untuk push backend-only
 ```
 
 ## Environment Backend
