@@ -18,7 +18,10 @@ export const TicketsService = {
     const session = await prisma.chatSession.findUnique({
       where: { id: payload.sessionId },
       include: {
-        messages: { orderBy: { createdAt: "asc" } },
+        messages: {
+          orderBy: { createdAt: "asc" },
+          include: { image: true },
+        },
       },
     });
 

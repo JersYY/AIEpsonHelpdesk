@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 import { requireFields } from "../../utils/validators.js";
+import { EmbeddingService } from "../ai/embedding.service.js";
 
 const chunkContent = (content, maxLength = 900) => {
   const paragraphs = content
@@ -36,6 +37,27 @@ const writeChunks = async (tx, documentId, content) => {
       metadata: { chunkIndex: index, source: "document-content" },
     })),
   });
+};
+
+const refreshDocumentEmbeddings = async (documentId) => {
+  if (!EmbeddingService.isConfigured()) {
+    return { updated: 0, skipped: true };
+  }
+
+  const chunks = await prisma.knowledgeChunk.findMany({
+    where: { documentId },
+    include: { document: { select: { title: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let updated = 0;
+  for (const chunk of chunks) {
+    if (await EmbeddingService.embedAndSaveKnowledgeChunk(chunk)) {
+      updated += 1;
+    }
+  }
+
+  return { updated, skipped: false };
 };
 
 const includeDocument = {
@@ -89,6 +111,8 @@ export const KnowledgeService = {
       return created;
     });
 
+    await refreshDocumentEmbeddings(document.id);
+
     return this.getById(document.id);
   },
 
@@ -119,6 +143,10 @@ export const KnowledgeService = {
 
       return updated;
     });
+
+    if (payload.content !== undefined || payload.title !== undefined) {
+      await refreshDocumentEmbeddings(document.id);
+    }
 
     return this.getById(document.id);
   },

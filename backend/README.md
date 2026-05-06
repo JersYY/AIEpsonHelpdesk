@@ -7,9 +7,9 @@ Backend API modular untuk sistem helpdesk internal Epson berbasis AI/RAG. API in
 - Auth JWT dengan bcrypt password hashing.
 - Role `USER`, `ADMIN`, dan `HELPDESK`.
 - Dashboard user dengan quick actions, popular issues, dan recent activity.
-- Chat AI/RAG dengan knowledge chunks, fallback keyword search, mock response saat `GEMINI_API_KEY` kosong.
+- Chat AI/RAG dengan Gemini, semantic search pgvector, fallback keyword search, dan mock response saat `GEMINI_API_KEY` kosong.
 - Upload gambar defect via multer: JPEG, PNG, WEBP, maksimal 5MB.
-- Admin CRUD knowledge base dengan auto chunking.
+- Admin CRUD knowledge base dengan auto chunking dan auto embedding untuk RAG.
 - Admin chat logs dan analytics.
 - Escalation ticket dan status workflow.
 - Summary report dan email via nodemailer/Mailpit.
@@ -64,6 +64,15 @@ PORT=4000
 DATABASE_URL=postgresql://user:pass@localhost:5432/epson_helpdesk
 JWT_SECRET=change-me
 GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_EMBEDDING_DIM=768
+GEMINI_TIMEOUT_MS=15000
+GEMINI_MAX_RETRIES=1
+GEMINI_TEMPERATURE=0.2
+GEMINI_MAX_OUTPUT_TOKENS=700
+GEMINI_SAFETY_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+RAG_MIN_SIMILARITY=0.25
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_USER=
@@ -97,6 +106,14 @@ npm run prisma:seed
 ```
 
 Seed command dikonfigurasi di `prisma.config.js` pada `migrations.seed` untuk kompatibilitas Prisma 7.
+
+8. Jika `GEMINI_API_KEY` sudah diisi, jalankan backfill embedding untuk data knowledge lama:
+
+```bash
+npm run rag:backfill
+```
+
+Jika `GEMINI_API_KEY` kosong, command backfill akan dilewati dan chat tetap berjalan dengan fallback keyword/mock.
 
 ## Status Database Lokal
 
@@ -221,7 +238,7 @@ Panduan demo dari setup, login user, chat AI, upload defect image, escalation ti
 
 ## Integrasi RAG Gemini
 
-Panduan mengaktifkan Gemini generation, menambahkan Gemini embeddings, dan memakai pgvector semantic search tersedia di `RAG_GEMINI.md`.
+Panduan detail tersedia di `RAG_GEMINI.md`. Implementasi saat ini sudah mencakup Gemini generation, Gemini embeddings, semantic search pgvector, fallback keyword search, timeout, retry terbatas, safety settings, dan confidence score berbasis retrieval.
 
 Kode AI/RAG disiapkan di:
 
@@ -229,7 +246,28 @@ Kode AI/RAG disiapkan di:
 src/modules/ai/
 ```
 
-Folder tersebut berisi scaffold service, mock fallback, dan TODO untuk AI engineer. Module `chat` tetap fokus pada session/message persistence, sementara module `ai` menjadi boundary untuk retrieval, embedding, prompt, dan model provider.
+Alur self-learning RAG:
+
+```txt
+Admin membuat/mengubah KnowledgeDocument
+  -> content dipecah menjadi KnowledgeChunk
+  -> Gemini membuat embedding RETRIEVAL_DOCUMENT
+  -> embedding disimpan ke pgvector
+  -> user bertanya
+  -> query dibuat embedding RETRIEVAL_QUERY
+  -> pgvector mengambil chunk paling relevan
+  -> Gemini menjawab berdasarkan context
+```
+
+Catatan: "self-learning" di sini berarti AI otomatis memakai knowledge base baru setelah admin menambahkan atau memperbarui dokumen. Ini bukan fine-tuning/model training otomatis dari percakapan user, supaya data produksi tetap aman dan jawaban tetap bisa diaudit.
+
+Command penting:
+
+```bash
+npm run rag:backfill
+```
+
+Gunakan command tersebut setelah seed, import data lama, atau migration dari sistem sebelumnya agar semua `KnowledgeChunk` lama memiliki embedding.
 
 ## Mailpit
 
@@ -294,4 +332,15 @@ Atau jalankan:
 npx prisma db execute --file prisma/sql/enable_pgvector.sql
 ```
 
-Field embedding disimpan sebagai `Unsupported("vector")?` pada model `KnowledgeChunk`. Saat embedding belum tersedia, RAG memakai fallback full-text/keyword search.
+Field embedding disimpan sebagai `Unsupported("vector(768)")?` pada model `KnowledgeChunk`. Dimensi default mengikuti `GEMINI_EMBEDDING_DIM=768`; jika dimensi diubah, migration SQL dan semua embedding lama harus dibuat ulang dengan dimensi yang sama.
+
+Migration RAG menambahkan index HNSW:
+
+```sql
+CREATE INDEX IF NOT EXISTS "knowledge_chunk_embedding_hnsw_idx"
+ON "KnowledgeChunk"
+USING hnsw ("embedding" vector_cosine_ops)
+WHERE "embedding" IS NOT NULL;
+```
+
+Saat embedding belum tersedia, `GEMINI_API_KEY` kosong, atau pgvector error, RAG otomatis memakai fallback full-text/keyword search.

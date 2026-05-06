@@ -34,10 +34,11 @@ prisma/schema.prisma
 
 Status saat ini:
 
-- RAG sudah berjalan dengan fallback keyword/full-text search.
-- Gemini text/image answer sudah disiapkan di `src/modules/ai/providers/gemini.provider.js`.
+- RAG sudah berjalan dengan semantic pgvector sebagai prioritas dan fallback keyword/full-text search.
+- Gemini text/image answer sudah disiapkan di `src/modules/ai/providers/gemini.provider.js` dengan model configurable, timeout, retry terbatas, dan safety settings.
 - Jika `GEMINI_API_KEY` kosong, backend otomatis pakai mock response.
-- Embedding `KnowledgeChunk.embedding` masih nullable dan belum diisi otomatis.
+- Embedding `KnowledgeChunk.embedding` nullable, tetapi otomatis diisi saat knowledge create/update jika `GEMINI_API_KEY` tersedia.
+- Script backfill embedding tersedia di `prisma/backfill-embeddings.js`.
 - `src/modules/chat/rag.service.js` hanya compatibility wrapper ke `src/modules/ai/rag.service.js`.
 
 ## AI Engineer Handoff
@@ -66,22 +67,20 @@ Tanggung jawab module:
 
 | File | Tanggung Jawab | Status |
 |---|---|---|
-| `ai.service.js` | Facade untuk call AI dari module lain | Scaffold |
-| `rag.service.js` | Orkestrasi retrieval + prompt + generation | Scaffold aktif |
-| `retrieval.service.js` | Search knowledge chunks | Keyword fallback aktif, semantic TODO |
-| `embedding.service.js` | Generate embedding query/document | Mock/TODO |
+| `ai.service.js` | Facade untuk call AI dari module lain | Aktif |
+| `rag.service.js` | Orkestrasi retrieval + prompt + generation | Aktif |
+| `retrieval.service.js` | Search knowledge chunks | Semantic pgvector + fallback keyword |
+| `embedding.service.js` | Generate embedding query/document | Gemini embedContent aktif |
 | `generation.service.js` | Generate answer dengan provider atau mock fallback | Aktif |
-| `prompt.service.js` | Build prompt grounding | Scaffold aktif |
-| `providers/gemini.provider.js` | Call Gemini generateContent | Aktif, hardening TODO |
+| `prompt.service.js` | Build prompt grounding | Aktif |
+| `providers/gemini.provider.js` | Call Gemini generateContent/embedContent | Aktif dengan config, timeout, retry |
 
-TODO utama untuk AI engineer:
+Yang masih bisa dikembangkan:
 
-- Implement Gemini embeddings di `embedding.service.js`.
-- Isi `KnowledgeChunk.embedding` saat knowledge create/update.
-- Buat script backfill embedding untuk data seed/lama.
-- Implement pgvector semantic search di `retrieval.service.js`.
-- Tambahkan AI config untuk model name, timeout, retry, safety settings, dan logging.
 - Tambahkan evaluasi jawaban dan threshold confidence.
+- Tambahkan observability internal yang lebih lengkap tanpa mencatat full prompt sensitif.
+- Tambahkan rate limit per user untuk endpoint chat.
+- Tambahkan evaluasi dataset pertanyaan-jawaban untuk mengukur retrieval quality.
 
 ## Sumber Resmi
 
@@ -206,6 +205,12 @@ Tambahkan optional env:
 GEMINI_MODEL=gemini-2.0-flash
 GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 GEMINI_EMBEDDING_DIM=768
+GEMINI_TIMEOUT_MS=15000
+GEMINI_MAX_RETRIES=1
+GEMINI_TEMPERATURE=0.2
+GEMINI_MAX_OUTPUT_TOKENS=700
+GEMINI_SAFETY_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+RAG_MIN_SIMILARITY=0.25
 ```
 
 Catatan:
@@ -239,15 +244,15 @@ USING hnsw ("embedding" vector_cosine_ops);
 
 Jika pakai dimensi selain `768`, sesuaikan semua call embedding dan tipe vector.
 
-## Contoh Gemini Embedding Service
+## Gemini Embedding Service
 
-Service placeholder sudah tersedia di:
+Service sudah tersedia di:
 
 ```txt
 src/modules/ai/embedding.service.js
 ```
 
-Contoh implementasi REST yang bisa dimasukkan ke `EmbeddingService.embedText()`:
+Implementasi REST ada di `src/modules/ai/providers/gemini.provider.js` dan dipanggil dari `EmbeddingService.embedText()`. Struktur request mengikuti pola:
 
 ```js
 import { env } from "../../config/env.js";
@@ -255,37 +260,10 @@ import { env } from "../../config/env.js";
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
 const EMBEDDING_DIM = Number(process.env.GEMINI_EMBEDDING_DIM || 768);
 
-export const GeminiEmbeddingService = {
-  async embedText(text, taskType = "RETRIEVAL_QUERY", title = null) {
-    if (!env.GEMINI_API_KEY) return null;
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          content: {
-            parts: [{ text }],
-          },
-          taskType,
-          title,
-          outputDimensionality: EMBEDDING_DIM,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new Error("Gemini embedding request failed");
-    }
-
-    const data = await response.json();
-    return data.embedding?.values || null;
-  },
-};
+await EmbeddingService.embedText(chunkText, {
+  taskType: "RETRIEVAL_DOCUMENT",
+  title: documentTitle,
+});
 ```
 
 Task type:
@@ -313,10 +291,16 @@ await prisma.$executeRaw`
 `;
 ```
 
-Untuk seed existing data, buat script backfill:
+Untuk seed existing data, gunakan script backfill:
 
 ```txt
 prisma/backfill-embeddings.js
+```
+
+Command:
+
+```bash
+npm run rag:backfill
 ```
 
 Alur backfill:

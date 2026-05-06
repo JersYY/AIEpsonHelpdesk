@@ -1,14 +1,19 @@
 export const buildConversationSummary = (messages = []) => {
   if (!messages.length) {
-    return "No conversation history is available yet.";
+    return "Belum ada riwayat percakapan.";
   }
 
   const lines = messages
     .slice(-12)
-    .map((message) => `${message.sender}: ${message.messageText}`)
+    .map((message) => {
+      const imageLabel = message.image
+        ? ` [Lampiran gambar: ${message.image.originalName || message.image.storedName}]`
+        : "";
+      return `${message.sender}: ${message.messageText}${imageLabel}`;
+    })
     .join("\n");
 
-  return `Summary of recent helpdesk conversation:\n${lines}`;
+  return `Ringkasan percakapan helpdesk terbaru:\n${lines}`;
 };
 
 export const titleFromMessage = (message = "Helpdesk Session") => {

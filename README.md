@@ -1,98 +1,117 @@
 # Epson AI Helpdesk Assistant
 
-Monorepo untuk **Epson AI Helpdesk Assistant**, sistem helpdesk internal berbasis AI/RAG untuk membantu troubleshooting masalah produksi di lingkungan manufaktur.
+Backend API untuk sistem helpdesk internal Epson berbasis AI/RAG. Backend mendukung auth JWT, chat troubleshooting, upload gambar defect, RAG dengan Gemini embeddings + pgvector, escalation ticket, summary email via Mailpit/SMTP, knowledge base admin, dan analytics.
 
-Project ini dibagi menjadi dua bagian:
+Catatan scope: panduan ini fokus ke backend. Frontend tidak termasuk bagian yang perlu dipush untuk perubahan backend-only.
+
+## Versi Kompatibel
+
+Versi yang sudah dites di mesin lokal:
+
+| Komponen | Versi |
+|---|---|
+| Node.js | `v24.13.1` |
+| npm | `10.3.0` |
+| Docker Engine | `27.3.1` |
+| PostgreSQL | `16` via image `pgvector/pgvector:pg16` |
+| pgvector | `0.8.2` |
+| Prisma | `7.8.0` |
+| Express | `5.2.1` |
+
+Rekomendasi minimal: gunakan Node.js modern yang kompatibel dengan Prisma 7, PostgreSQL 16, dan pgvector. Cara paling stabil untuk development adalah memakai Docker Desktop untuk PostgreSQL + Mailpit.
+
+## Struktur
 
 ```txt
 aiHelpdeskEpson/
   backend/
-  frontend/
+    prisma/
+    src/
+    README.md
+    API.md
+    DEMO.md
+    RAG_GEMINI.md
+  frontend/   # tidak dibahas untuk push backend-only
 ```
 
-## Status Project
+## Environment Backend
 
-| Area | Status | Keterangan |
-|---|---|---|
-| Backend | Ready | Node.js/Express API, PostgreSQL, Prisma, pgvector, JWT, upload file, tickets, reports, admin analytics, AI/RAG scaffold |
-| Frontend | Placeholder | Folder tersedia, implementasi frontend belum dibuat |
+Buat file `backend/.env`.
 
-## Backend
-
-Backend berada di folder:
-
-```txt
-backend/
-```
-
-Dokumentasi backend detail:
-
-```txt
-backend/README.md
-backend/API.md
-backend/DEMO.md
-backend/RAG_GEMINI.md
-```
-
-### Tech Stack Backend
-
-- Node.js
-- Express.js
-- PostgreSQL
-- Prisma
-- pgvector
-- JWT
-- bcrypt
-- multer
-- nodemailer
-- dotenv
-- cors
-- helmet
-- morgan
-
-AI/RAG backend boundary tersedia di:
-
-```txt
-backend/src/modules/ai/
-```
-
-Folder tersebut disiapkan untuk AI engineer melanjutkan embedding, retrieval, prompt, dan provider Gemini.
-
-### Environment Backend
-
-Buat file:
-
-```txt
-backend/.env
-```
-
-Contoh isi:
+Contoh:
 
 ```env
 PORT=4000
-DATABASE_URL=postgresql://postgres:your_password@localhost:5432/epson_helpdesk
 JWT_SECRET=isi_dengan_random_secret_panjang
+DATABASE_URL="postgresql://postgres:change-me-postgres@localhost:5432/epson_helpdesk"
+
 GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.0-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_EMBEDDING_DIM=768
+GEMINI_TIMEOUT_MS=15000
+GEMINI_MAX_RETRIES=1
+GEMINI_TEMPERATURE=0.2
+GEMINI_MAX_OUTPUT_TOKENS=700
+GEMINI_SAFETY_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+RAG_MIN_SIMILARITY=0.25
+AI_MIN_RESPONSE_MS=900
+
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=helpdesk@epson.local
+
 CORS_ORIGIN=http://localhost:3000
 ```
 
-Catatan:
+Jangan commit `.env`. `GEMINI_API_KEY` boleh kosong; backend akan memakai fallback mock response. Jika key aktif tetapi quota habis, generation akan fallback ke mock, sedangkan RAG tetap berjalan dengan knowledge base yang tersedia.
 
-- `JWT_SECRET` wajib diisi string random panjang.
-- `GEMINI_API_KEY` boleh kosong untuk development; backend akan memakai mock AI response.
-- `CORS_ORIGIN` diisi URL frontend yang berjalan di browser, bukan URL backend.
+## Menjalankan Database
 
-### Menjalankan Backend
+Jalankan PostgreSQL + pgvector:
+
+```bash
+docker run -d --name epson-helpdesk-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=change-me-postgres -e POSTGRES_DB=epson_helpdesk -p 5432:5432 -v epson-helpdesk-postgres-data:/var/lib/postgresql/data pgvector/pgvector:pg16
+```
+
+Jika container sudah pernah dibuat:
+
+```bash
+docker start epson-helpdesk-postgres
+```
+
+Jalankan Mailpit untuk SMTP development:
+
+```bash
+docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+Jika container sudah pernah dibuat:
+
+```bash
+docker start mailpit
+```
+
+Inbox email development:
+
+```txt
+http://localhost:8025
+```
+
+## Setup Backend
 
 Masuk ke folder backend:
 
 ```bash
 cd backend
+```
+
+Install dependency:
+
+```bash
+npm install
 ```
 
 Generate Prisma Client:
@@ -101,28 +120,38 @@ Generate Prisma Client:
 npm run prisma:generate
 ```
 
-Aktifkan pgvector di database:
+Apply migration:
 
 ```bash
-npx prisma db execute --file prisma/sql/enable_pgvector.sql
+npx prisma migrate deploy
 ```
 
-Jalankan migration:
-
-```bash
-npm run prisma:migrate -- --name init
-```
-
-Jalankan seed:
+Seed demo data:
 
 ```bash
 npm run prisma:seed
 ```
 
-Jalankan backend development server:
+Isi embedding knowledge lama atau data seed:
+
+```bash
+npm run rag:backfill
+```
+
+Jika `GEMINI_API_KEY` kosong atau quota habis, backfill embedding bisa gagal/dilewati. Chat tetap usable dengan fallback keyword/mock, tetapi semantic RAG terbaik membutuhkan embedding.
+
+## Menjalankan Backend
+
+Development:
 
 ```bash
 npm run dev
+```
+
+Production-like:
+
+```bash
+npm start
 ```
 
 Backend berjalan di:
@@ -137,7 +166,19 @@ Health check:
 GET http://localhost:4000/api/health
 ```
 
-### Akun Demo Backend
+Expected:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok",
+    "service": "epson-helpdesk-api"
+  }
+}
+```
+
+## Akun Demo
 
 | Role | Email | Employee ID | Password |
 |---|---|---|---|
@@ -145,126 +186,115 @@ GET http://localhost:4000/api/health
 | USER | `operator.assembly@epson.local` | `EMP001` | `Password123!` |
 | HELPDESK | `helpdesk@epson.local` | `HD001` | `Password123!` |
 
-### Reset Database Backend
+## Test Cepat API
 
-Untuk mengulang data demo dari awal:
+Login:
+
+```txt
+POST http://localhost:4000/api/auth/login
+```
+
+Body:
+
+```json
+{
+  "email": "operator.assembly@epson.local",
+  "password": "Password123!"
+}
+```
+
+Chat:
+
+```txt
+POST http://localhost:4000/api/chat/message
+Authorization: Bearer <token>
+```
+
+Body:
+
+```json
+{
+  "message": "Output printer muncul garis banding setelah maintenance. Apa yang harus saya cek dulu?"
+}
+```
+
+Upload gambar:
+
+```txt
+POST http://localhost:4000/api/files/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+field: file
+```
+
+Chat dengan gambar:
+
+```json
+{
+  "message": "Output printer bergaris, saya lampirkan gambar defect",
+  "imageId": "<uploaded_file_id>"
+}
+```
+
+Eskalasi ticket:
+
+```txt
+POST http://localhost:4000/api/tickets/escalate
+Authorization: Bearer <token>
+```
+
+Body:
+
+```json
+{
+  "sessionId": "<chat_session_id>",
+  "priority": "HIGH"
+}
+```
+
+Kirim summary email ke Mailpit:
+
+```txt
+POST http://localhost:4000/api/reports/send-email
+Authorization: Bearer <token>
+```
+
+Body:
+
+```json
+{
+  "ticketId": "<ticket_id>",
+  "recipientEmail": "helpdesk@epson.local",
+  "subject": "Epson AI Helpdesk - Ringkasan Eskalasi"
+}
+```
+
+Jika chat memiliki gambar, email akan menyertakan gambar tersebut sebagai attachment.
+
+## Reset Database Lokal
+
+Perintah ini menghapus semua data lokal:
 
 ```bash
 cd backend
 npx prisma migrate reset --force
-npx prisma db execute --file prisma/sql/enable_pgvector.sql
-npm run prisma:seed
+npm run rag:backfill
 ```
 
-Reset akan menghapus semua data di database target `DATABASE_URL`.
-
-### SMTP Development
-
-Untuk email development, gunakan Mailpit:
+## Stop Service Lokal
 
 ```bash
-docker run --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit
+docker stop epson-helpdesk-postgres
+docker stop mailpit
 ```
 
-Inbox:
+Jika backend dijalankan manual dengan `npm run dev`, hentikan dengan `Ctrl+C`.
+
+## Dokumentasi Lanjutan
 
 ```txt
-http://localhost:8025
-```
-
-`.env` backend:
-
-```env
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=helpdesk@epson.local
-```
-
-### Integrasi Frontend ke Backend
-
-Frontend nanti memanggil backend dengan base URL:
-
-```txt
-http://localhost:4000/api
-```
-
-Untuk endpoint protected, sertakan token:
-
-```http
-Authorization: Bearer <token>
-```
-
-Pastikan `backend/.env` berisi origin frontend:
-
-```env
-CORS_ORIGIN=http://localhost:3000
-```
-
-Jika frontend memakai Vite:
-
-```env
-CORS_ORIGIN=http://localhost:5173
-```
-
-Restart backend setelah mengubah `.env`.
-
-## Frontend
-
-Frontend berada di folder:
-
-```txt
-frontend/
-```
-
-Saat ini folder frontend masih placeholder dan belum memiliki konfigurasi aplikasi.
-
-Rencana integrasi frontend:
-
-- Login page memakai `POST /api/auth/login`.
-- Simpan JWT di client state/storage sesuai kebijakan keamanan frontend.
-- Dashboard user memakai `GET /api/dashboard/user`.
-- Chat UI memakai `POST /api/chat/message`.
-- Upload defect image memakai `POST /api/files/upload`.
-- Ticket escalation memakai `POST /api/tickets/escalate`.
-- Admin pages memakai endpoint `/api/admin/*`.
-
-Jika frontend sudah dibuat, dokumentasikan command run di bagian ini.
-
-## Dokumentasi API dan Demo
-
-Endpoint lengkap:
-
-```txt
+backend/README.md
 backend/API.md
-```
-
-Demo Postman end-to-end:
-
-```txt
 backend/DEMO.md
-```
-
-Panduan RAG Gemini:
-
-```txt
 backend/RAG_GEMINI.md
-```
-
-## Quick Start Backend
-
-```bash
-cd backend
-npm run prisma:generate
-npx prisma db execute --file prisma/sql/enable_pgvector.sql
-npm run prisma:migrate -- --name init
-npm run prisma:seed
-npm run dev
-```
-
-Lalu buka:
-
-```txt
-http://localhost:4000/api/health
 ```

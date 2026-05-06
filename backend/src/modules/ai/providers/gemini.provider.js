@@ -1,7 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
 
-import { env } from "../../../config/env.js";
+import { aiConfig } from "../../../config/ai.js";
+
+const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 const mimeFromExtension = (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
@@ -11,14 +13,67 @@ const mimeFromExtension = (filePath) => {
   return null;
 };
 
+const modelPath = (model) => (model.startsWith("models/") ? model : `models/${model}`);
+
+const sleep = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const isRetryableError = (error) => {
+  if (error.name === "AbortError") return true;
+  if (error.status === 429) return true;
+  if (error.status >= 500) return true;
+  return !error.status;
+};
+
+const requestJson = async (url, body) => {
+  let lastError;
+  const attempts = aiConfig.gemini.maxRetries + 1;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), aiConfig.gemini.timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": aiConfig.gemini.apiKey,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      const errorText = await response.text();
+      const error = new Error(`Gemini request failed with status ${response.status}`);
+      error.status = response.status;
+      error.details = errorText?.slice(0, 300);
+      throw error;
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts - 1 || !isRetryableError(error)) {
+        throw error;
+      }
+      await sleep(250 * 2 ** attempt);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw lastError;
+};
+
 export const GeminiProvider = {
   async generateAnswer({ prompt, imagePath = null }) {
-    if (!env.GEMINI_API_KEY) {
+    if (!aiConfig.gemini.apiKey) {
       return null;
     }
 
-    // TODO(ai-engineer): move model name, timeout, safety settings, retry policy,
-    // and response logging strategy into explicit AI config.
     const parts = [{ text: prompt }];
 
     if (imagePath) {
@@ -35,28 +90,49 @@ export const GeminiProvider = {
       }
     }
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+    const data = await requestJson(
+      `${GEMINI_API_BASE_URL}/${modelPath(aiConfig.gemini.model)}:generateContent`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 700,
-          },
-        }),
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+          temperature: aiConfig.gemini.temperature,
+          maxOutputTokens: aiConfig.gemini.maxOutputTokens,
+        },
+        safetySettings: aiConfig.gemini.safetySettings,
       },
     );
 
-    if (!response.ok) {
-      throw new Error("Gemini request failed");
-    }
-
-    const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text).filter(Boolean).join("\n");
 
+    if (!text && data.promptFeedback?.blockReason) {
+      throw new Error(`Gemini response blocked: ${data.promptFeedback.blockReason}`);
+    }
+
     return text || null;
+  },
+
+  async embedText({ text, taskType = "RETRIEVAL_QUERY", title = null }) {
+    if (!aiConfig.gemini.apiKey) {
+      return null;
+    }
+
+    const body = {
+      content: {
+        parts: [{ text }],
+      },
+      taskType,
+      outputDimensionality: aiConfig.gemini.embeddingDim,
+    };
+
+    if (taskType === "RETRIEVAL_DOCUMENT" && title) {
+      body.title = title;
+    }
+
+    const data = await requestJson(
+      `${GEMINI_API_BASE_URL}/${modelPath(aiConfig.gemini.embeddingModel)}:embedContent`,
+      body,
+    );
+
+    return data.embedding?.values || null;
   },
 };

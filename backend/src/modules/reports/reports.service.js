@@ -21,46 +21,75 @@ const assertEmail = (email) => {
   }
 };
 
-export const ReportsService = {
-  async generateSummary(user, payload) {
-    if (!payload.sessionId && !payload.ticketId) {
-      throw new ApiError(400, "sessionId or ticketId is required");
-    }
+const sessionWithMessageImages = {
+  messages: {
+    orderBy: { createdAt: "asc" },
+    include: { image: true },
+  },
+};
 
-    if (payload.ticketId) {
-      const ticket = await prisma.escalationTicket.findUnique({
-        where: { id: payload.ticketId },
-        include: {
-          session: {
-            include: { messages: { orderBy: { createdAt: "asc" } } },
-          },
+const fileAttachmentsFromMessages = (messages = []) => messages
+  .filter((message) => message.image)
+  .map((message) => ({
+    filename: message.image.originalName || message.image.storedName,
+    path: message.image.storagePath,
+    contentType: message.image.mimeType,
+  }));
+
+const getReportSource = async (user, payload) => {
+  if (!payload.sessionId && !payload.ticketId) {
+    throw new ApiError(400, "sessionId or ticketId is required");
+  }
+
+  if (payload.ticketId) {
+    const ticket = await prisma.escalationTicket.findUnique({
+      where: { id: payload.ticketId },
+      include: {
+        session: {
+          include: sessionWithMessageImages,
         },
-      });
-
-      if (!ticket) throw new ApiError(404, "Ticket not found");
-      if (user.role === "USER" && ticket.userId !== user.id) {
-        throw new ApiError(403, "You can only summarize your own ticket");
-      }
-
-      return {
-        summary: ticket.summary || buildConversationSummary(ticket.session.messages),
-        source: { ticketId: ticket.id, sessionId: ticket.sessionId },
-      };
-    }
-
-    const session = await prisma.chatSession.findUnique({
-      where: { id: payload.sessionId },
-      include: { messages: { orderBy: { createdAt: "asc" } } },
+      },
     });
 
-    if (!session) throw new ApiError(404, "Chat session not found");
-    if (user.role === "USER" && session.userId !== user.id) {
-      throw new ApiError(403, "You can only summarize your own chat session");
+    if (!ticket) throw new ApiError(404, "Ticket not found");
+    if (user.role === "USER" && ticket.userId !== user.id) {
+      throw new ApiError(403, "You can only summarize your own ticket");
     }
 
     return {
-      summary: buildConversationSummary(session.messages),
-      source: { sessionId: session.id },
+      summary: ticket.summary || buildConversationSummary(ticket.session.messages),
+      source: { ticketId: ticket.id, sessionId: ticket.sessionId },
+      messages: ticket.session.messages,
+    };
+  }
+
+  const session = await prisma.chatSession.findUnique({
+    where: { id: payload.sessionId },
+    include: sessionWithMessageImages,
+  });
+
+  if (!session) throw new ApiError(404, "Chat session not found");
+  if (user.role === "USER" && session.userId !== user.id) {
+    throw new ApiError(403, "You can only summarize your own chat session");
+  }
+
+  return {
+    summary: buildConversationSummary(session.messages),
+    source: { sessionId: session.id },
+    messages: session.messages,
+  };
+};
+
+export const ReportsService = {
+  async generateSummary(user, payload) {
+    const reportSource = await getReportSource(user, payload);
+    return {
+      summary: reportSource.summary,
+      source: reportSource.source,
+      attachments: fileAttachmentsFromMessages(reportSource.messages).map((attachment) => ({
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+      })),
     };
   },
 
@@ -68,8 +97,9 @@ export const ReportsService = {
     requireFields(payload, ["recipientEmail"]);
     assertEmail(payload.recipientEmail);
 
-    const summaryResult = await this.generateSummary(user, payload);
+    const summaryResult = await getReportSource(user, payload);
     const subject = payload.subject || "Epson AI Helpdesk Summary Report";
+    const attachments = fileAttachmentsFromMessages(summaryResult.messages);
 
     try {
       await getTransport().sendMail({
@@ -77,6 +107,7 @@ export const ReportsService = {
         to: payload.recipientEmail,
         subject,
         text: summaryResult.summary,
+        attachments,
       });
 
       const emailLog = await prisma.emailLog.create({
@@ -88,7 +119,15 @@ export const ReportsService = {
         },
       });
 
-      return { sent: true, emailLog, summary: summaryResult.summary };
+      return {
+        sent: true,
+        emailLog,
+        summary: summaryResult.summary,
+        attachments: attachments.map((attachment) => ({
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+        })),
+      };
     } catch (error) {
       const emailLog = await prisma.emailLog.create({
         data: {
@@ -103,6 +142,10 @@ export const ReportsService = {
         sent: false,
         emailLog,
         summary: summaryResult.summary,
+        attachments: attachments.map((attachment) => ({
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+        })),
         error: error.message,
       };
     }

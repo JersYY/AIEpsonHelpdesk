@@ -139,7 +139,7 @@ model KnowledgeChunk {
   id         String                 @id @default(uuid())
   documentId String
   chunkText  String                 @db.Text
-  embedding  Unsupported("vector")?
+  embedding  Unsupported("vector(768)")?
   metadata   Json?
   createdAt  DateTime               @default(now())
   document   KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)

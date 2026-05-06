@@ -1,9 +1,36 @@
+import { aiConfig } from "../../config/ai.js";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 import { buildConversationSummary, titleFromMessage } from "../../utils/summary.js";
 import { RagService } from "./rag.service.js";
 
-const confidenceScore = () => Number((0.7 + Math.random() * 0.2).toFixed(2));
+const sleep = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const waitForMinimumResponseTime = async (startedAt) => {
+  const remainingMs = aiConfig.response.minDelayMs - (Date.now() - startedAt);
+  if (remainingMs > 0) {
+    await sleep(remainingMs);
+  }
+};
+
+const confidenceScore = ({ provider, contexts }) => {
+  const topScore = contexts
+    .map((context) => Number(context.score))
+    .find((score) => Number.isFinite(score));
+
+  if (Number.isFinite(topScore)) {
+    const providerBoost = provider === "gemini" ? 0.1 : 0;
+    return Number(Math.min(0.95, Math.max(0.4, topScore + providerBoost)).toFixed(2));
+  }
+
+  if (contexts.length) {
+    return provider === "gemini" ? 0.74 : 0.62;
+  }
+
+  return provider === "gemini" ? 0.55 : 0.45;
+};
 
 const ensureUserSession = async (sessionId, user) => {
   const session = await prisma.chatSession.findUnique({
@@ -62,7 +89,7 @@ export const ChatService = {
       data: {
         sessionId: session.id,
         sender: "USER",
-        messageText: message || "[Image uploaded]",
+        messageText: message || "[Gambar diunggah]",
         imageId: image?.id || null,
       },
     });
@@ -74,6 +101,7 @@ export const ChatService = {
       contexts,
       imagePath: image?.storagePath || null,
     });
+    await waitForMinimumResponseTime(startedAt);
     const responseTimeMs = Date.now() - startedAt;
 
     const aiMessage = await prisma.chatMessage.create({
@@ -81,7 +109,7 @@ export const ChatService = {
         sessionId: session.id,
         sender: "AI",
         messageText: answer.text,
-        confidenceScore: confidenceScore(),
+        confidenceScore: confidenceScore({ provider: answer.provider, contexts }),
         responseTimeMs,
       },
     });

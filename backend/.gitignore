@@ -2,6 +2,7 @@
 # Node Modules
 # =========================
 node_modules/
+.npm-cache/
 
 # =========================
 # Environment Variables
