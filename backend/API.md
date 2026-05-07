@@ -21,6 +21,7 @@ Authorization: Bearer <token>
 ```
 
 Semua endpoint membutuhkan JWT kecuali `POST /api/auth/login` dan `GET /api/health`.
+Login menggunakan `employeeId` dan `password`, bukan email.
 
 ## Endpoint List
 
@@ -34,7 +35,7 @@ Semua endpoint membutuhkan JWT kecuali `POST /api/auth/login` dan `GET /api/heal
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
-| POST | `/api/auth/login` | Public | `{ "email": "admin@epson.local", "password": "Password123!" }` |
+| POST | `/api/auth/login` | Public | `{ "employeeId": "ADM001", "password": "Password123!" }` |
 | POST | `/api/auth/logout` | JWT | - |
 | GET | `/api/auth/me` | JWT | - |
 
@@ -112,7 +113,7 @@ POST /api/auth/login
 
 ```json
 {
-  "email": "operator.assembly@epson.local",
+  "employeeId": "EMP001",
   "password": "Password123!"
 }
 ```

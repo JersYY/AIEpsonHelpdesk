@@ -80,7 +80,7 @@ Body:
 
 ```json
 {
-  "email": "operator.assembly@epson.local",
+  "employeeId": "EMP001",
   "password": "Password123!"
 }
 ```
@@ -99,7 +99,7 @@ Expected:
   "success": true,
   "data": {
     "user": {
-      "email": "operator.assembly@epson.local",
+      "employeeId": "EMP001",
       "role": "USER"
     },
     "token": "jwt-token"
@@ -509,7 +509,7 @@ Body:
 
 ```json
 {
-  "email": "admin@epson.local",
+  "employeeId": "ADM001",
   "password": "Password123!"
 }
 ```
@@ -671,7 +671,7 @@ Body:
 
 ```json
 {
-  "email": "helpdesk@epson.local",
+  "employeeId": "HD001",
   "password": "Password123!"
 }
 ```

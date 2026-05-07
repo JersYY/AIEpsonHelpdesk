@@ -14,6 +14,7 @@ const signToken = (user) => {
   return jwt.sign(
     {
       sub: user.id,
+      employeeId: user.employeeId,
       role: user.role,
     },
     env.JWT_SECRET,
@@ -22,15 +23,15 @@ const signToken = (user) => {
 };
 
 export const AuthService = {
-  async login({ email, employeeId, password }) {
-    const identifier = email || employeeId;
+  async login({ employeeId, employeeID, employee_id: employeeIdSnake, idEmployee, password }) {
+    const normalizedEmployeeId = employeeId || employeeID || employeeIdSnake || idEmployee;
 
-    if (!identifier || !password) {
-      throw new ApiError(400, "Email or employeeId and password are required");
+    if (!normalizedEmployeeId || !password) {
+      throw new ApiError(400, "Employee ID and password are required");
     }
 
-    const user = await prisma.user.findFirst({
-      where: email ? { email } : { employeeId },
+    const user = await prisma.user.findUnique({
+      where: { employeeId: normalizedEmployeeId },
     });
 
     if (!user) {
