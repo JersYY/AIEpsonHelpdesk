@@ -129,7 +129,7 @@ Body:
 
 ```json
 {
-  "email": "operator.assembly@epson.local",
+  "employeeId": "EMP001",
   "password": "Password123!"
 }
 ```

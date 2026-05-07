@@ -213,6 +213,8 @@ Catatan: jangan isi `CORS_ORIGIN` dengan URL backend. Isi dengan URL frontend ya
 
 ## Akun Demo
 
+Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama.
+
 | Role | Email | Employee ID | Password |
 |---|---|---|---|
 | ADMIN | `admin@epson.local` | `ADM001` | `Password123!` |
