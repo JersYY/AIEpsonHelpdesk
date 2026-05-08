@@ -8,7 +8,7 @@ import '../../../assets/styles/login.css'
 
 const router = useRouter()
 
-const email = ref('')
+const employeeId = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const loading = ref(false)
@@ -17,8 +17,8 @@ const handleLogin = async () => {
     errorMessage.value = ''
 
     // VALIDASI
-    if (!email.value || !password.value) {
-        errorMessage.value = 'Email dan password wajib diisi'
+    if (!employeeId.value || !password.value) {
+        errorMessage.value = 'ID Karyawan dan password wajib diisi'
         return
     }
 
@@ -26,7 +26,7 @@ const handleLogin = async () => {
         loading.value = true
 
         const response = await authService.login({
-            email: email.value,
+            employeeId: employeeId.value,
             password: password.value,
         })
 
@@ -89,12 +89,12 @@ const handleLogin = async () => {
             <!-- EMAIL -->
             <div class="form-group">
 
-                <label>Email</label>
+                <label>ID Karyawan</label>
 
                 <input
-                    v-model="email"
-                    type="email"
-                    placeholder="Enter your email"
+                    v-model="employeeId"
+                    type="text"
+                    placeholder="Enter your employee ID"
                 />
 
             </div>
