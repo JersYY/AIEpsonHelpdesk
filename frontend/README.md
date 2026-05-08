@@ -1,5 +1,45 @@
-# Vue 3 + Vite
+# AI Helpdesk Epson - Frontend
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Frontend application for AI Helpdesk Epson built using Vue 3 and Vite.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+---
+
+# Clone Repository
+
+```bash
+git clone https://github.com/KhansaFathonah/aiHelpdeskEpson.git
+
+Move to frontend folder:
+cd aiHelpdeskEpson/frontend
+Install Dependencies
+npm install
+
+Additional packages:
+
+npm install @fortawesome/fontawesome-free
+
+Environment Setup
+
+Create .env file inside frontend folder:
+
+VITE_API_URL=http://localhost:4000/api
+Run Development Server
+npm run dev
+
+Frontend will run on:
+
+http://localhost:5173
+
+Tech Stack
+- Vue 3
+- Vite
+- Vue Router
+- Pinia
+- Axios
+- Font Awesome
+
+Notes
+- Make sure backend server is already running
+- Backend API runs on port 4000
+- .env file should not be committed to GitHub
+
