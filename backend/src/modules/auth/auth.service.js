@@ -23,15 +23,30 @@ const signToken = (user) => {
 };
 
 export const AuthService = {
-  async login({ employeeId, employeeID, employee_id: employeeIdSnake, idEmployee, password }) {
-    const normalizedEmployeeId = employeeId || employeeID || employeeIdSnake || idEmployee;
+  async login({
+    employeeId,
+    employeeID,
+    employee_id: employeeIdSnake,
+    idEmployee,
+    email,
+    username,
+    password,
+  } = {}) {
+    const identifier = String(
+      employeeId ?? employeeID ?? employeeIdSnake ?? idEmployee ?? email ?? username ?? "",
+    ).trim();
 
-    if (!normalizedEmployeeId || !password) {
+    if (!identifier || !password) {
       throw new ApiError(400, "Employee ID and password are required");
     }
 
-    const user = await prisma.user.findUnique({
-      where: { employeeId: normalizedEmployeeId },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { employeeId: { equals: identifier, mode: "insensitive" } },
+          { email: { equals: identifier, mode: "insensitive" } },
+        ],
+      },
     });
 
     if (!user) {
