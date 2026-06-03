@@ -12,9 +12,7 @@ import { notFound } from "./middlewares/notfound.middleware.js";
 import { authorizeRoles } from "./middlewares/role.middleware.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
-import activityRoutes from "./modules/dashboard/activity.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
-import issuesRoutes from "./modules/dashboard/issues.routes.js";
 import chatRoutes from "./modules/chat/chat.routes.js";
 import fileRoutes from "./modules/files/files.routes.js";
 import healthRoutes from "./modules/health/health.routes.js";
@@ -89,8 +87,6 @@ app.use("/api/auth", authRoutes);
 
 app.use("/api", requireAuth);
 app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/issues", issuesRoutes);
-app.use("/api/activity", activityRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/tickets", ticketRoutes);

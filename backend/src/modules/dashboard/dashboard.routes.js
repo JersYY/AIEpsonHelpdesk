@@ -1,9 +1,11 @@
 import express from "express";
 
-import { getUserDashboard } from "./dashboard.controller.js";
+import { getPopularIssues, getRecentActivity, getUserDashboard } from "./dashboard.controller.js";
 
 const router = express.Router();
 
-router.get("/user", getUserDashboard);
+router.get("/", getUserDashboard);
+router.get("/popular-issues", getPopularIssues);
+router.get("/recent-activity", getRecentActivity);
 
 export default router;
