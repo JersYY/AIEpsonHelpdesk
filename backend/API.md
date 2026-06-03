@@ -43,9 +43,9 @@ Login menggunakan `employeeId` dan `password`, bukan email.
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
-| GET | `/api/dashboard/user` | JWT | - |
-| GET | `/api/issues/popular` | JWT | - |
-| GET | `/api/activity/recent` | JWT | - |
+| GET | `/api/dashboard` | JWT | - |
+| GET | `/api/dashboard/popular-issues` | JWT | - |
+| GET | `/api/dashboard/recent-activity` | JWT | - |
 
 ### ChatSession / ChatMessage
 

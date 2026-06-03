@@ -299,7 +299,7 @@ export const openApiSpec = {
         },
       },
     },
-    "/dashboard/user": {
+    "/dashboard": {
       get: {
         tags: ["Dashboard"],
         summary: "Get user dashboard",
@@ -309,7 +309,7 @@ export const openApiSpec = {
         },
       },
     },
-    "/issues/popular": {
+    "/dashboard/popular-issues": {
       get: {
         tags: ["Dashboard"],
         summary: "Get popular issue categories",
@@ -335,7 +335,7 @@ export const openApiSpec = {
         },
       },
     },
-    "/activity/recent": {
+    "/dashboard/recent-activity": {
       get: {
         tags: ["Dashboard"],
         summary: "Get recent activity for current user",

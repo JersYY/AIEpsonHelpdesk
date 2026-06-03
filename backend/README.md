@@ -225,7 +225,7 @@ Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data pro
 
 - Health: `GET /api/health`
 - Auth: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
-- Dashboard: `GET /api/dashboard/user`, `GET /api/issues/popular`, `GET /api/activity/recent`
+- Dashboard: `GET /api/dashboard`, `GET /api/dashboard/popular-issues`, `GET /api/dashboard/recent-activity`
 - Chat: `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions/:id`
 - Files: `POST /api/files/upload`, `GET /api/files/:id`, `DELETE /api/files/:id`
 - Admin Knowledge: `GET|POST /api/admin/knowledge`, `PUT|DELETE /api/admin/knowledge/:id`

@@ -136,7 +136,7 @@ Expected data:
 Request:
 
 ```txt
-GET {{base_url}}/api/dashboard/user
+GET {{base_url}}/api/dashboard
 ```
 
 Auth:
@@ -161,7 +161,7 @@ Expected data contains:
 Request:
 
 ```txt
-GET {{base_url}}/api/issues/popular
+GET {{base_url}}/api/dashboard/popular-issues
 ```
 
 Auth:
