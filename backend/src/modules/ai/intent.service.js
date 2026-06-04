@@ -19,40 +19,62 @@ const GREETING_WORDS = new Set([
 const HELPDESK_KEYWORDS = [
   "adf",
   "alignment",
+  "asap",
   "banding",
+  "berkedip",
   "black",
+  "blinking",
   "cleaning",
   "cyan",
+  "daya",
   "defect",
   "dots",
+  "epson",
   "error",
   "firmware",
   "garis",
+  "hang",
   "hardware",
   "hasil",
+  "hidup",
+  "hidupkan",
   "ink",
   "ip",
   "jam",
   "jaringan",
   "kabel",
   "kertas",
+  "lampu",
+  "layar",
+  "listrik",
+  "macet",
   "maintenance",
   "magenta",
+  "mati",
+  "menyala",
   "mesin",
   "missing",
   "network",
   "nozzle",
+  "nyala",
   "output",
+  "panas",
   "paper",
   "part",
+  "power",
   "print",
   "printer",
+  "restart",
   "roller",
+  "rusak",
   "scan",
   "scanner",
   "sensor",
   "sop",
+  "stopkontak",
+  "terbakar",
   "tinta",
+  "tombol",
   "troubleshooting",
   "wifi",
   "yellow",
@@ -173,6 +195,14 @@ export const IntentService = {
   isHelpdeskQuestion(message = "") {
     const normalized = String(message).toLowerCase();
     return HELPDESK_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  },
+
+  classifyIntent(message = "") {
+    const cleanMessage = String(message).trim();
+    if (!cleanMessage) return "helpdesk";
+    if (this.isGreetingOnly(cleanMessage)) return "greeting";
+    if (this.isHelpdeskQuestion(cleanMessage)) return "helpdesk";
+    return "other";
   },
 
   significantTokens(message = "") {

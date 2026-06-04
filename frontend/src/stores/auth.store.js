@@ -1,40 +1,77 @@
 import { defineStore } from 'pinia'
-import { loginService } from '../services/auth.service'
+import authService from '../services/auth.service'
+import api from '../services/api'
 
 export const useAuthStore = defineStore('auth', {
-    state: () => ({
-        user: null,
-        token: null,
-        loading: false,
-        error: null,
-    }),
-    
-    actions: {
-        async login(formData) {
-            try {
-                this.loading = true
-                this.error = null
-                const response = await loginService(formData)
+  state: () => ({
+    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    token: localStorage.getItem('token') || null,
+    loading: false,
+    error: null,
+  }),
 
-                this.user = response.data.user
-                this.token = response.data.token
+  getters: {
+    isAuthenticated: (state) => Boolean(state.token),
+    role: (state) => state.user?.role || null,
+    isAdmin: (state) => state.user?.role === 'ADMIN',
+    isHelpdesk: (state) => state.user?.role === 'HELPDESK',
+    isUser: (state) => state.user?.role === 'USER',
+  },
 
-                localStorage.setItem('token', response.data.token)
+  actions: {
+    async login(formData) {
+      try {
+        this.loading = true
+        this.error = null
+        const response = await authService.login(formData)
 
-                return response
-            } catch (error) {
-                this.error = error.response?.data?.message || 'Login gagal'
-                throw error
-            } finally {
-                this.loading = false
-            }
-        },
+        this.user = response.data.user
+        this.token = response.data.token
 
-    logout() {
-        this.user = null
-        this.token = null
+        localStorage.setItem('token', response.data.token)
+        localStorage.setItem('user', JSON.stringify(response.data.user))
 
-        localStorage.removeItem('token')
+        return response
+      } catch (error) {
+        this.error = error.response?.data?.error?.message
+          || error.response?.data?.message
+          || 'Login gagal'
+        throw error
+      } finally {
+        this.loading = false
+      }
     },
-},
+
+    async fetchMe() {
+      if (!this.token) return null
+      try {
+        const { data } = await api.get('/auth/me')
+        this.user = data.data
+        localStorage.setItem('user', JSON.stringify(data.data))
+        return data.data
+      } catch {
+        return null
+      }
+    },
+
+    // Clear local session state only (no network call). Used by the router
+    // guard when a stale/invalid token is detected.
+    clearSession() {
+      this.user = null
+      this.token = null
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    },
+
+    async logout() {
+      try {
+        await api.post('/auth/logout')
+      } catch {
+        // ignore network errors on logout
+      }
+      this.clearSession()
+    },
+  },
 })
+
+export default useAuthStore

@@ -1,12 +1,17 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
-import authService from '../../../services/auth.service'
+import { useAuthStore } from '../../../stores/auth.store'
+import { usePreferencesStore } from '../../../stores/preferences.store'
+import { defaultRouteForRole } from '../../../guards/auth.guard'
 
 import '../../../assets/styles/login.css'
 
 const router = useRouter()
+const route = useRoute()
+const auth = useAuthStore()
+const prefs = usePreferencesStore()
 
 const employeeId = ref('')
 const password = ref('')
@@ -16,7 +21,6 @@ const loading = ref(false)
 const handleLogin = async () => {
     errorMessage.value = ''
 
-    // VALIDASI
     if (!employeeId.value || !password.value) {
         errorMessage.value = 'ID Karyawan dan password wajib diisi'
         return
@@ -25,25 +29,18 @@ const handleLogin = async () => {
     try {
         loading.value = true
 
-        const response = await authService.login({
+        await auth.login({
             employeeId: employeeId.value,
             password: password.value,
         })
 
-        console.log(response)
+        // Load server-side preferences (theme, etc.) after login.
+        await prefs.loadRemote()
 
-        localStorage.setItem(
-            'token',
-            response.data.token
-        )
-
-        router.push('/dashboard')
-
+        const redirect = route.query.redirect || defaultRouteForRole(auth.role)
+        router.push(redirect)
     } catch (error) {
-        console.log(error)
-
-        errorMessage.value =
-            'Email atau password salah'
+        errorMessage.value = auth.error || 'ID Karyawan atau password salah'
     } finally {
         loading.value = false
     }

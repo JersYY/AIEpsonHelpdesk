@@ -17,9 +17,13 @@ import chatRoutes from "./modules/chat/chat.routes.js";
 import fileRoutes from "./modules/files/files.routes.js";
 import healthRoutes from "./modules/health/health.routes.js";
 import knowledgeRoutes from "./modules/knowledge/knowledge.routes.js";
+import knowledgePublicRoutes from "./modules/knowledge/knowledge.public.routes.js";
+import learningRoutes from "./modules/ml/learning.routes.js";
+import mlRoutes from "./modules/ml/ml.routes.js";
 import emailRoutes from "./modules/reports/email.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
 import ticketRoutes from "./modules/tickets/tickets.routes.js";
+import userRoutes from "./modules/users/user.routes.js";
 
 const app = express();
 
@@ -87,12 +91,16 @@ app.use("/api/auth", authRoutes);
 
 app.use("/api", requireAuth);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/files", fileRoutes);
+app.use("/api/knowledge", knowledgePublicRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/email-logs", emailRoutes);
+app.use("/api/learning", authorizeRoles("ADMIN", "HELPDESK"), learningRoutes);
 app.use("/api/admin/knowledge", authorizeRoles("ADMIN"), knowledgeRoutes);
+app.use("/api/admin/ml", authorizeRoles("ADMIN"), mlRoutes);
 app.use("/api/admin", authorizeRoles("ADMIN"), adminRoutes);
 
 app.use(notFound);

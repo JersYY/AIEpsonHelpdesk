@@ -1,34 +1,36 @@
 # Epson AI Helpdesk Assistant
 
-Backend API untuk sistem helpdesk internal Epson berbasis AI/RAG. Backend mendukung auth JWT, chat troubleshooting, upload gambar defect, RAG dengan Gemini embeddings + pgvector, escalation ticket, summary email via Mailpit/SMTP, knowledge base admin, dan analytics.
+Aplikasi helpdesk internal Epson berbasis AI/RAG. Terdiri dari **backend** (Express + Prisma + PostgreSQL/pgvector + Gemini) dan **frontend** (Vue 3 + Vite + Pinia). Mendukung auth JWT, chat troubleshooting RAG, upload gambar defect, escalation ticket, summary email via Mailpit/SMTP, knowledge base admin, analytics, ML lokal (kategori/intent/prioritas), dan self-learning melalui review candidate.
 
-## Versi Kompatibel
+## URL Penting
 
-Versi yang sudah dites di mesin lokal:
-
-| Komponen | Versi |
+| Layanan | URL |
 |---|---|
-| Node.js | `v24.13.1` |
-| npm | `10.3.0` |
-| Docker Engine | `27.3.1` |
-| PostgreSQL | `16` via image `pgvector/pgvector:pg16` |
-| pgvector | `0.8.2` |
-| Prisma | `7.8.0` |
-| Express | `5.2.1` |
+| Frontend | `http://localhost:5173` |
+| Backend API | `http://localhost:4000` |
+| Swagger / OpenAPI | `http://localhost:4000/api/docs` |
+| OpenAPI JSON | `http://localhost:4000/api/docs.json` |
+| Mailpit Inbox | `http://localhost:8025` |
 
-Rekomendasi minimal: gunakan Node.js modern yang kompatibel dengan Prisma 7, PostgreSQL 16, dan pgvector. Cara paling stabil untuk development adalah memakai Docker Desktop untuk PostgreSQL + Mailpit.
-
-## Struktur
+## Struktur Repository
 
 ```txt
 aiHelpdeskEpson/
   backend/
-    prisma/
+    prisma/            schema, migrations, seed
     src/
+      config/          env, prisma, ai, openapi
+      middlewares/     auth, role, error, notfound
+      modules/         auth, chat, ai, ml, tickets, knowledge, reports, admin, ...
+      app.js, server.js
+    README.md  API.md  DEMO.md  RAG_GEMINI.md
+  frontend/
+    src/
+      modules/ services/ stores/ router/
     README.md
-    API.md
-    DEMO.md
-    RAG_GEMINI.md
+  PRD.md
+  BACKEND_AI_RAG.md
+  README.md
 ```
 
 ## Environment Backend
@@ -175,6 +177,24 @@ Expected:
 }
 ```
 
+## Setup Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend berjalan di `http://localhost:5173`.
+
+Buat file `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:4000/api
+```
+
+API client (`frontend/src/services/api.js`) memakai `import.meta.env.VITE_API_URL` dengan fallback `http://localhost:4000/api`, dan menangani `401` dengan menghapus token lalu redirect ke `/login`.
+
 ## Akun Demo
 
 Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama.
@@ -292,8 +312,34 @@ Jika backend dijalankan manual dengan `npm run dev`, hentikan dengan `Ctrl+C`.
 ## Dokumentasi Lanjutan
 
 ```txt
-backend/README.md
-backend/API.md
-backend/DEMO.md
-backend/RAG_GEMINI.md
+PRD.md                  PRD + dokumentasi teknis end-to-end
+BACKEND_AI_RAG.md       Catatan AI/RAG tingkat repo
+backend/README.md       Setup & API backend
+backend/API.md          Referensi endpoint
+backend/DEMO.md         Alur demo Postman
+backend/RAG_GEMINI.md   Detail RAG + Gemini
+frontend/README.md      Cara menjalankan UI
 ```
+
+## Endpoint Penting
+
+Auth: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+Chat: `POST /api/chat/message` (mendukung `temporary: true`), `GET /api/chat/history`, `GET /api/chat/sessions/:id`, `PATCH /api/chat/sessions/:id` (rename), `DELETE /api/chat/sessions/:id`, `POST /api/chat/sessions/:id/archive|restore`, `PATCH /api/chat/messages/:id` (edit), `POST /api/chat/messages/:id/regenerate`, `POST /api/chat/messages/:id/feedback`
+Knowledge (read-only): `GET /api/knowledge`, `GET /api/knowledge/:id`, `GET /api/knowledge/suggested-questions`
+Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `PATCH /api/tickets/:id/status`
+Users: `GET/PATCH /api/users/me/preferences`
+Learning (ADMIN/HELPDESK): `GET /api/learning/candidates`, `POST /api/learning/candidates/:id/approve|reject`
+Admin: `GET /api/admin/analytics`, `GET /api/admin/chat-logs`, `/api/admin/knowledge` CRUD, `/api/admin/ml` train/status/predict
+
+## Known Gaps (Frontend vs Backend)
+
+- Frontend UI ChatGPT-style (AppShell, sidebar, composer) belum sepenuhnya direbuild; service & endpoint backend sudah siap.
+- Theme light/dark/system saat ini dipersist via endpoint preferences + localStorage fallback.
+- Halaman admin learning-candidate review masih perlu UI; endpoint backend sudah tersedia.
+- Gemini free tier dapat kena rate limit; chat otomatis fallback ke mock yang tetap aman dan terstruktur.
+
+## Catatan ML & Self-learning
+
+- Klasifikasi kategori/intent/prioritas memakai model lokal (Naive Bayes + TF-IDF), dilatih saat startup, tanpa dependensi API.
+- Self-learning TIDAK mengubah knowledge base secara otomatis. Chat tervalidasi (feedback helpful / ticket resolved) hanya membuat **KnowledgeCandidate** berstatus `PENDING` yang wajib di-review admin/helpdesk sebelum menjadi `KnowledgeDocument`.
+- Temporary chat tidak masuk history, tidak membuat ticket/candidate, dan tidak dipakai self-learning.

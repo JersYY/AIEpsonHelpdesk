@@ -97,6 +97,9 @@ export const GeminiProvider = {
         generationConfig: {
           temperature: aiConfig.gemini.temperature,
           maxOutputTokens: aiConfig.gemini.maxOutputTokens,
+          // Gemini 2.5 models use "thinking" tokens that consume the output budget.
+          // Disable it so the full answer fits within maxOutputTokens.
+          thinkingConfig: { thinkingBudget: 0 },
         },
         safetySettings: aiConfig.gemini.safetySettings,
       },

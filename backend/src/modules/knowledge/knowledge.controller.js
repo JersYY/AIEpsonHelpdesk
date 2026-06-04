@@ -6,6 +6,14 @@ export const listKnowledge = asyncHandler(async (req, res) => {
   return sendSuccess(res, await KnowledgeService.list(req.query));
 });
 
+export const getKnowledge = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await KnowledgeService.getById(req.params.id));
+});
+
+export const getSuggestedQuestions = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await KnowledgeService.suggestedQuestions(req.query.limit));
+});
+
 export const createKnowledge = asyncHandler(async (req, res) => {
   return sendSuccess(res, await KnowledgeService.create(req.body), 201);
 });

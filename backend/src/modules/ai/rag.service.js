@@ -7,14 +7,15 @@ export const RagService = {
     return RetrievalService.searchRelevantChunks(query, limit);
   },
 
-  async generateAnswer({ message, contexts = [], imagePath = null }) {
-    const prompt = PromptService.buildHelpdeskPrompt({ message, contexts });
+  async generateAnswer({ message, contexts = [], imagePath = null, intent = null }) {
+    const prompt = PromptService.buildHelpdeskPrompt({ message, contexts, intent });
 
     return GenerationService.generateAnswer({
       message,
       prompt,
       contexts,
       imagePath,
+      intent,
     });
   },
 };

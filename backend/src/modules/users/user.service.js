@@ -8,6 +8,9 @@ export const sanitizeUser = (user) => {
     email: user.email,
     role: user.role,
     department: user.department,
+    theme: user.theme,
+    defaultChatMode: user.defaultChatMode,
+    compactSidebar: user.compactSidebar,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

@@ -4,261 +4,91 @@ import { useRouter } from 'vue-router'
 
 import dashboardService from '../../../services/dashboard.service.js'
 
-import '../../../assets/styles/dashboard.css'
-
-import PopularIssueCard from '../components/PopularIssueCard.vue'
-import QuickActionCard from '../components/QuickActionCard.vue'
-import RecentActivityCard from '../components/RecentActivityCard.vue'
-
 const router = useRouter()
-const goToChat = () => {
-    router.push('/chat')
-}
-
-const goToFaq = () => {
-    router.push('/faq')
-}
-
-const goToTickets = () => {
-    router.push('/tickets')
-}
 
 const user = ref({})
 const popularIssues = ref([])
 const recentActivity = ref([])
-
 const loading = ref(false)
-const showLogoutModal = ref(false)
 
-const logout = () => {
-    localStorage.removeItem('token')
-
-    router.push('/')
-}
-
-const formatDate = (date) => {
-    return new Date(date).toLocaleDateString(
-        'id-ID',
-        {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        }
-    )
-}
+const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 
 onMounted(async () => {
-    try {
-
-        loading.value = true
-
-        const response =
-            await dashboardService.getUserDashboard()
-
-        const data = response.data.data
-
-        user.value = data.user
-
-        popularIssues.value =
-            data.popularIssues || []
-
-        recentActivity.value =
-            data.recentActivity || []
-
-    } catch (error) {
-        console.log(error)
-    } finally {
-        loading.value = false
-    }
+  loading.value = true
+  try {
+    const res = await dashboardService.getUserDashboard()
+    const data = res.data.data
+    user.value = data.user || {}
+    popularIssues.value = data.popularIssues || []
+    recentActivity.value = data.recentActivity || []
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
 <template>
-    <div class="dashboard-page">
+  <div class="content-pad">
+    <h1 class="page-title">Selamat datang, {{ user.name || 'Employee' }}</h1>
+    <p class="page-subtitle">ID: {{ user.employeeId || '-' }}</p>
 
-        <!-- HEADER -->
-        <div class="dashboard-header">
-
-            <div class="user-info">
-
-                <div class="user-avatar">
-                    <i class="fa-regular fa-user"></i>
-                </div>
-
-                <div>
-
-                    <h2>
-                        Welcome,
-                        {{ user.name || 'Employee' }}
-                    </h2>
-
-                    <p>
-                        ID:
-                        {{ user.employeeId || '-' }}
-                    </p>
-
-                </div>
-
-            </div>
-
-            <button
-                class="logout-button"
-                @click="showLogoutModal = true"
-            >
-                <i class="fa-solid fa-right-from-bracket"></i>
-
-                Logout
-            </button>
-
-        </div>
-
-        <!-- SEARCH -->
-        <div class="search-wrapper">
-
-            <i class="fa-solid fa-magnifying-glass"></i>
-
-            <input
-                type="text"
-                placeholder="Search your problem..."
-            />
-
-        </div>
-
-        <!-- QUICK ACTION -->
-        <section class="dashboard-section">
-
-            <h3 class="section-title">
-                Quick Actions
-            </h3>
-
-            <div class="quick-grid">
-
-                <div @click="goToChat">
-                    <QuickActionCard
-                        title="Start Chat"
-                        subtitle="Talk to AI Assistant"
-                        icon="fa-regular fa-comment"
-                    />
-                </div>
-
-                <div @click="goToFaq">
-                    <QuickActionCard
-                        title="View FAQ"
-                        subtitle="Browse troubleshooting guides"
-                        icon="fa-solid fa-book-open"
-                    />
-                </div>
-
-                <div @click="goToTickets">
-                    <QuickActionCard
-                        title="My Tickets"
-                        subtitle="Track escalated issues"
-                        icon="fa-solid fa-ticket"
-                    />
-                </div>
-
-            </div>
-
-        </section>
-
-        <!-- POPULAR ISSUES -->
-        <section class="dashboard-section">
-
-            <h3 class="section-title">
-                Popular Issues
-            </h3>
-
-            <div class="issue-list">
-
-                <PopularIssueCard
-                    v-for="issue in popularIssues"
-                    :key="issue.id"
-                    :title="issue.name"
-                    :subtitle="
-                        issue.description ||
-                        'No description'
-                    "
-                    :total="issue.count"
-                    icon="fa-solid fa-print"
-                />
-
-            </div>
-
-        </section>
-
-        <!-- RECENT ACTIVITY -->
-        <section class="dashboard-section">
-
-            <h3 class="section-title">
-                Recent Activity
-            </h3>
-
-            <div class="activity-list">
-
-                <RecentActivityCard
-                    v-for="activity in recentActivity"
-                    :key="activity.id"
-                    :title="
-                        activity.title ||
-                        'Untitled Session'
-                    "
-                    :time="
-                        formatDate(activity.updatedAt)
-                    "
-                    :status="activity.status"
-                />
-
-                <!-- EMPTY STATE -->
-                <div
-                    v-if="
-                        !loading &&
-                        recentActivity.length === 0
-                    "
-                    class="empty-state"
-                >
-                    No recent activity
-                </div>
-
-            </div>
-
-        </section>
-
+    <div class="quick-grid">
+      <button class="card quick" @click="router.push('/chat')">
+        <i class="fa-regular fa-comment"></i>
+        <div><strong>Mulai Chat</strong><span class="muted">Tanya AI Assistant</span></div>
+      </button>
+      <button class="card quick" @click="router.push('/faq')">
+        <i class="fa-solid fa-book-open"></i>
+        <div><strong>FAQ</strong><span class="muted">Panduan troubleshooting</span></div>
+      </button>
+      <button class="card quick" @click="router.push('/tickets')">
+        <i class="fa-solid fa-ticket"></i>
+        <div><strong>Tickets Saya</strong><span class="muted">Lacak eskalasi</span></div>
+      </button>
     </div>
-    <!-- LOGOUT MODAL -->
-<div
-    v-if="showLogoutModal"
-    class="modal-overlay"
->
-    <div class="logout-modal">
 
-        <div class="modal-icon">
-            <i class="fa-solid fa-right-from-bracket"></i>
+    <div class="two-col">
+      <div>
+        <h3 class="sec-title">Popular Issues</h3>
+        <div class="card" style="padding: 0;">
+          <div v-for="issue in popularIssues" :key="issue.id" class="list-row">
+            <div><strong>{{ issue.name }}</strong><p class="muted" style="font-size: 12px;">{{ issue.description || '-' }}</p></div>
+            <span class="badge badge-medium">{{ issue.count }}</span>
+          </div>
+          <p v-if="!popularIssues.length" class="muted" style="padding: 16px;">Belum ada data.</p>
         </div>
+      </div>
 
-        <h3>Logout Confirmation</h3>
-
-        <p>
-            Are you sure you want to logout?
-        </p>
-
-        <div class="modal-actions">
-
-            <button
-                class="cancel-button"
-                @click="showLogoutModal = false"
-            >
-                Cancel
-            </button>
-
-            <button
-                class="confirm-button"
-                @click="logout"
-            >
-                Logout
-            </button>
-
+      <div>
+        <h3 class="sec-title">Aktivitas Terbaru</h3>
+        <div class="card" style="padding: 0;">
+          <div
+            v-for="a in recentActivity"
+            :key="a.id"
+            class="list-row clickable"
+            @click="router.push(`/chat/${a.id}`)"
+          >
+            <div><strong>{{ a.title || 'Untitled' }}</strong><p class="muted" style="font-size: 12px;">{{ fmtDate(a.updatedAt) }}</p></div>
+            <span class="badge" :class="`badge-${(a.status || '').toLowerCase()}`">{{ a.status }}</span>
+          </div>
+          <p v-if="!recentActivity.length" class="muted" style="padding: 16px;">Belum ada aktivitas.</p>
         </div>
-
+      </div>
     </div>
-</div>
+  </div>
 </template>
+
+<style scoped>
+.quick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 28px; }
+.quick { display: flex; align-items: center; gap: 14px; cursor: pointer; text-align: left; border: 1px solid var(--color-border); font-family: inherit; }
+.quick i { font-size: 20px; color: var(--color-primary); }
+.quick strong { display: block; }
+.quick span { font-size: 12px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.sec-title { margin-bottom: 12px; font-size: 15px; }
+.list-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--color-border); }
+.list-row:last-child { border-bottom: none; }
+.list-row.clickable { cursor: pointer; }
+.list-row.clickable:hover { background: var(--color-surface-strong); }
+@media (max-width: 860px) { .quick-grid { grid-template-columns: 1fr; } .two-col { grid-template-columns: 1fr; } }
+</style>

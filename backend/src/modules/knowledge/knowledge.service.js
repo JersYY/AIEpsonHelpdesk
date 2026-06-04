@@ -75,6 +75,16 @@ export const KnowledgeService = {
     });
   },
 
+  async suggestedQuestions(limit = 10) {
+    return prisma.suggestedQuestion.findMany({
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Math.max(Number(limit) || 10, 1), 50),
+      include: {
+        document: { select: { id: true, title: true, categoryId: true } },
+      },
+    });
+  },
+
   async getById(id) {
     const document = await prisma.knowledgeDocument.findUnique({
       where: { id },

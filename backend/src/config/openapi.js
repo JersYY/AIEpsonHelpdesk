@@ -27,6 +27,8 @@ export const openApiSpec = {
     { name: "Tickets" },
     { name: "Reports" },
     { name: "Email Logs" },
+    { name: "Users" },
+    { name: "Learning" },
   ],
   components: {
     securitySchemes: {
@@ -80,6 +82,8 @@ export const openApiSpec = {
           categoryId: { type: "string", format: "uuid", nullable: true },
           title: { type: "string", example: "Print quality issue" },
           status: { type: "string", enum: ["ACTIVE", "RESOLVED", "ESCALATED"] },
+          archived: { type: "boolean", example: false },
+          isTemporary: { type: "boolean", example: false },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -87,15 +91,15 @@ export const openApiSpec = {
       ChatMessage: {
         type: "object",
         properties: {
-            id: { type: "string", format: "uuid" },
-            ticketNumber: { type: "integer", example: 1 },
-            ticketCode: { type: "string", example: "TKT-0001" },
-            sessionId: { type: "string", format: "uuid" },
+          id: { type: "string", format: "uuid" },
+          sessionId: { type: "string", format: "uuid" },
           sender: { type: "string", enum: ["USER", "AI", "SYSTEM"] },
           messageText: { type: "string" },
           imageId: { type: "string", format: "uuid", nullable: true },
           confidenceScore: { type: "number", nullable: true, example: 0.82 },
           responseTimeMs: { type: "integer", nullable: true, example: 920 },
+          feedback: { type: "string", enum: ["UP", "DOWN"], nullable: true },
+          editedAt: { type: "string", format: "date-time", nullable: true },
           createdAt: { type: "string", format: "date-time" },
         },
       },
@@ -140,6 +144,8 @@ export const openApiSpec = {
         type: "object",
         properties: {
           id: { type: "string", format: "uuid" },
+          ticketNumber: { type: "integer", example: 1 },
+          ticketCode: { type: "string", example: "TKT-001" },
           sessionId: { type: "string", format: "uuid" },
           userId: { type: "string", format: "uuid" },
           categoryId: { type: "string", format: "uuid", nullable: true },
@@ -148,6 +154,29 @@ export const openApiSpec = {
           priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      KnowledgeCandidate: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          sourceSessionId: { type: "string", format: "uuid", nullable: true },
+          createdByUserId: { type: "string", format: "uuid", nullable: true },
+          title: { type: "string" },
+          content: { type: "string" },
+          categoryId: { type: "string", format: "uuid", nullable: true },
+          status: { type: "string", enum: ["PENDING", "NEEDS_EDIT", "APPROVED", "REJECTED"] },
+          confidenceScore: { type: "number", nullable: true },
+          redactionStatus: { type: "string", enum: ["PENDING", "REDACTED"] },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      UserPreferences: {
+        type: "object",
+        properties: {
+          theme: { type: "string", enum: ["light", "dark", "system"] },
+          defaultChatMode: { type: "string", enum: ["normal", "temporary"] },
+          compactSidebar: { type: "boolean" },
         },
       },
       EmailLog: {
@@ -366,6 +395,11 @@ export const openApiSpec = {
                   categoryId: { type: "string", format: "uuid", nullable: true },
                   imageId: { type: "string", format: "uuid", nullable: true },
                   title: { type: "string", nullable: true, example: "Print quality issue" },
+                  temporary: {
+                    type: "boolean",
+                    default: false,
+                    description: "When true, the message is answered but NOT persisted, NOT in history, and NOT used for self-learning.",
+                  },
                 },
               },
             },
@@ -421,6 +455,208 @@ export const openApiSpec = {
           200: { description: "Chat session detail." },
           401: { $ref: "#/components/responses/Unauthorized" },
           404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+      patch: {
+        tags: ["Chat"],
+        summary: "Rename a chat session",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["title"],
+                properties: { title: { type: "string", example: "Printer banding after maintenance" } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Session renamed." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+      delete: {
+        tags: ["Chat"],
+        summary: "Soft-delete a chat session",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Session deleted." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/chat/sessions/{id}/archive": {
+      post: {
+        tags: ["Chat"],
+        summary: "Archive a chat session",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Session archived." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/chat/sessions/{id}/restore": {
+      post: {
+        tags: ["Chat"],
+        summary: "Restore an archived chat session",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Session restored." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/chat/messages/{id}": {
+      patch: {
+        tags: ["Chat"],
+        summary: "Edit a user message and regenerate the AI answer",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["message"],
+                properties: { message: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Message edited and new answer generated." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/chat/messages/{id}/regenerate": {
+      post: {
+        tags: ["Chat"],
+        summary: "Regenerate an AI answer",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "New AI answer generated." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/chat/messages/{id}/feedback": {
+      post: {
+        tags: ["Chat"],
+        summary: "Submit feedback on an AI answer",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["rating"],
+                properties: {
+                  rating: { type: "string", enum: ["UP", "DOWN"] },
+                  comment: { type: "string", nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Feedback recorded." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/knowledge": {
+      get: {
+        tags: ["Knowledge"],
+        summary: "List knowledge documents (read-only, all roles)",
+        parameters: [{ name: "categoryId", in: "query", required: false, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: {
+            description: "Knowledge document list.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "array", items: { $ref: "#/components/schemas/KnowledgeDocument" } },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/knowledge/suggested-questions": {
+      get: {
+        tags: ["Knowledge"],
+        summary: "List suggested questions for quick prompts",
+        responses: {
+          200: { description: "Suggested questions." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/knowledge/{id}": {
+      get: {
+        tags: ["Knowledge"],
+        summary: "Get knowledge document detail (read-only)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Knowledge document detail." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/users/me/preferences": {
+      get: {
+        tags: ["Users"],
+        summary: "Get current user preferences",
+        responses: {
+          200: {
+            description: "User preferences.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { $ref: "#/components/schemas/UserPreferences" },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+      patch: {
+        tags: ["Users"],
+        summary: "Update current user preferences",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UserPreferences" },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Preferences updated." },
+          401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
     },
@@ -647,10 +883,48 @@ export const openApiSpec = {
           { name: "status", in: "query", schema: { type: "string", enum: ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] } },
           { name: "priority", in: "query", schema: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] } },
           { name: "categoryId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Search summary or user." },
         ],
         responses: {
           200: { description: "Paginated ticket list." },
           403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/tickets/my": {
+      get: {
+        tags: ["Tickets"],
+        summary: "List current user's tickets",
+        description: "Requires USER role.",
+        responses: {
+          200: {
+            description: "Current user's tickets.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "array", items: { $ref: "#/components/schemas/EscalationTicket" } },
+                  },
+                },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/tickets/my/{id}": {
+      get: {
+        tags: ["Tickets"],
+        summary: "Get current user's ticket detail",
+        description: "Requires USER role. Only returns tickets owned by the user.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Ticket detail." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },
@@ -759,6 +1033,118 @@ export const openApiSpec = {
         responses: {
           200: { description: "Paginated email logs." },
           403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/learning/candidates": {
+      get: {
+        tags: ["Learning"],
+        summary: "List self-learning knowledge candidates",
+        description: "Requires ADMIN or HELPDESK role.",
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "NEEDS_EDIT", "APPROVED", "REJECTED"] } },
+        ],
+        responses: {
+          200: {
+            description: "Candidate list.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "array", items: { $ref: "#/components/schemas/KnowledgeCandidate" } },
+                  },
+                },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/learning/candidates/from-session/{sessionId}": {
+      post: {
+        tags: ["Learning"],
+        summary: "Create a knowledge candidate from a validated session",
+        description: "Requires ADMIN or HELPDESK role. Temporary sessions are rejected.",
+        parameters: [{ name: "sessionId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          201: { description: "Candidate created (or skipped if not eligible)." },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/learning/candidates/{id}": {
+      get: {
+        tags: ["Learning"],
+        summary: "Get a knowledge candidate",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Candidate detail." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+      patch: {
+        tags: ["Learning"],
+        summary: "Edit a knowledge candidate before approval",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  categoryId: { type: "string", format: "uuid", nullable: true },
+                  status: { type: "string", enum: ["PENDING", "NEEDS_EDIT", "APPROVED", "REJECTED"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Candidate updated." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/learning/candidates/{id}/approve": {
+      post: {
+        tags: ["Learning"],
+        summary: "Approve a candidate and create a KnowledgeDocument for RAG",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Candidate approved and knowledge document created." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/learning/candidates/{id}/reject": {
+      post: {
+        tags: ["Learning"],
+        summary: "Reject a candidate",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { reason: { type: "string", nullable: true } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Candidate rejected." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },

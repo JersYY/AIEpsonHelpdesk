@@ -2,6 +2,8 @@ import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 import { buildConversationSummary } from "../../utils/summary.js";
 import { assertEnum, requireFields, toInt } from "../../utils/validators.js";
+import { LearningService } from "../ml/learning.service.js";
+import { MlService } from "../ml/ml.service.js";
 
 const ticketInclude = {
   user: { select: { id: true, employeeId: true, name: true, email: true, department: true } },
@@ -42,6 +44,19 @@ export const TicketsService = {
     return tickets.map(withTicketCode);
   },
 
+  async myTicketById(user, id) {
+    const ticket = await prisma.escalationTicket.findUnique({
+      where: { id },
+      include: ticketInclude,
+    });
+
+    if (!ticket || ticket.userId !== user.id) {
+      throw new ApiError(404, "Ticket not found");
+    }
+
+    return withTicketCode(ticket);
+  },
+
   async escalate(user, payload) {
     requireFields(payload, ["sessionId"]);
     assertEnum(payload.priority, ["LOW", "MEDIUM", "HIGH"], "priority");
@@ -69,6 +84,18 @@ export const TicketsService = {
 
     const summary = buildConversationSummary(session.messages);
 
+    // ML: suggest a priority from the conversation; use it as default when the
+    // caller did not specify one.
+    let suggestedPriority = null;
+    try {
+      const prediction = await MlService.predictPriority(summary);
+      suggestedPriority = prediction.label;
+    } catch {
+      suggestedPriority = null;
+    }
+
+    const resolvedPriority = payload.priority || suggestedPriority || "MEDIUM";
+
     const ticket = await prisma.$transaction(async (tx) => {
 
       const created = await tx.escalationTicket.create({
@@ -77,7 +104,7 @@ export const TicketsService = {
           userId: session.userId,
           categoryId,
           summary,
-          priority: payload.priority || "MEDIUM",
+          priority: resolvedPriority,
           status: "OPEN",
         },
         include: ticketInclude,
@@ -94,7 +121,7 @@ export const TicketsService = {
       return created;
     });
 
-    return withTicketCode(ticket);
+    return { ...withTicketCode(ticket), suggestedPriority };
   },
 
   async list(query = {}) {
@@ -105,6 +132,15 @@ export const TicketsService = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.priority ? { priority: query.priority } : {}),
       ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+      ...(query.q
+        ? {
+            OR: [
+              { summary: { contains: query.q, mode: "insensitive" } },
+              { user: { name: { contains: query.q, mode: "insensitive" } } },
+              { user: { employeeId: { contains: query.q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
     };
 
     const [items, total] = await Promise.all([
@@ -152,6 +188,16 @@ export const TicketsService = {
         where: { id: updated.sessionId },
         data: { status: "RESOLVED" },
       });
+
+      // Continuous learning (SAFE): resolved case proposes a knowledge CANDIDATE
+      // for admin/helpdesk review. It does NOT auto-modify the knowledge base.
+      try {
+        await LearningService.candidateFromSession(updated.sessionId, { confidenceScore: 0.8 });
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn(`[ml] candidate from resolved ticket skipped: ${error.message}`);
+        }
+      }
     }
 
     return withTicketCode(updated);

@@ -13,6 +13,10 @@ export const myTickets = asyncHandler(async (req, res) => {
   );
 });
 
+export const myTicketById = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await TicketsService.myTicketById(req.user, req.params.id));
+});
+
 export const listTickets = asyncHandler(async (req, res) => {
   return sendSuccess(res, await TicketsService.list(req.query));
 });
