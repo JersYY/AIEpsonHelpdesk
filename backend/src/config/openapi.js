@@ -87,8 +87,10 @@ export const openApiSpec = {
       ChatMessage: {
         type: "object",
         properties: {
-          id: { type: "string", format: "uuid" },
-          sessionId: { type: "string", format: "uuid" },
+            id: { type: "string", format: "uuid" },
+            ticketNumber: { type: "integer", example: 1 },
+            ticketCode: { type: "string", example: "TKT-0001" },
+            sessionId: { type: "string", format: "uuid" },
           sender: { type: "string", enum: ["USER", "AI", "SYSTEM"] },
           messageText: { type: "string" },
           imageId: { type: "string", format: "uuid", nullable: true },

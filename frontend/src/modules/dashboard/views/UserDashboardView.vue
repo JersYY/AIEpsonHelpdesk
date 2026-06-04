@@ -1,18 +1,26 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import dashboardService from '../../../services/dashboard.service'
+import dashboardService from '../../../services/dashboard.service.js'
 
 import '../../../assets/styles/dashboard.css'
 
-import QuickActionCard from '../components/QuickActionCard.vue'
 import PopularIssueCard from '../components/PopularIssueCard.vue'
+import QuickActionCard from '../components/QuickActionCard.vue'
 import RecentActivityCard from '../components/RecentActivityCard.vue'
 
 const router = useRouter()
 const goToChat = () => {
     router.push('/chat')
+}
+
+const goToFaq = () => {
+    router.push('/faq')
+}
+
+const goToTickets = () => {
+    router.push('/tickets')
 }
 
 const user = ref({})
@@ -126,7 +134,6 @@ onMounted(async () => {
             <div class="quick-grid">
 
                 <div @click="goToChat">
-
                     <QuickActionCard
                         title="Start Chat"
                         subtitle="Talk to AI Assistant"
@@ -134,17 +141,21 @@ onMounted(async () => {
                     />
                 </div>
 
-                <QuickActionCard
-                    title="View FAQ"
-                    subtitle="Browse knowledge base"
-                    icon="fa-solid fa-book-open"
-                />
+                <div @click="goToFaq">
+                    <QuickActionCard
+                        title="View FAQ"
+                        subtitle="Browse troubleshooting guides"
+                        icon="fa-solid fa-book-open"
+                    />
+                </div>
 
-                <QuickActionCard
-                    title="Report Issue"
-                    subtitle="Submit a ticket"
-                    icon="fa-solid fa-circle-exclamation"
-                />
+                <div @click="goToTickets">
+                    <QuickActionCard
+                        title="My Tickets"
+                        subtitle="Track escalated issues"
+                        icon="fa-solid fa-ticket"
+                    />
+                </div>
 
             </div>
 

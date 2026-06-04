@@ -10,7 +10,38 @@ const ticketInclude = {
   emailLogs: { orderBy: { sentAt: "desc" } },
 };
 
+const formatTicketCode = (ticketNumber) => {
+  if (!ticketNumber) return null;
+
+  return `TKT-${String(ticketNumber).padStart(4, "0")}`;
+};
+
+const withTicketCode = (ticket) => {
+  if (!ticket) return ticket;
+
+  return {
+    ...ticket,
+    ticketCode: formatTicketCode(ticket.ticketNumber),
+  };
+};
+
 export const TicketsService = {
+  async myTickets(user) {
+    const tickets = await prisma.escalationTicket.findMany({
+      where: {
+        userId: user.id,
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      include: ticketInclude,
+    });
+
+    return tickets.map(withTicketCode);
+  },
+
   async escalate(user, payload) {
     requireFields(payload, ["sessionId"]);
     assertEnum(payload.priority, ["LOW", "MEDIUM", "HIGH"], "priority");
@@ -62,7 +93,7 @@ export const TicketsService = {
       return created;
     });
 
-    return ticket;
+    return withTicketCode(ticket);
   },
 
   async list(query = {}) {
@@ -87,7 +118,7 @@ export const TicketsService = {
     ]);
 
     return {
-      items,
+      items: items.map(withTicketCode),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   },
@@ -99,7 +130,7 @@ export const TicketsService = {
     });
 
     if (!ticket) throw new ApiError(404, "Ticket not found");
-    return ticket;
+    return withTicketCode(ticket);
   },
 
   async updateStatus(id, payload) {
@@ -122,6 +153,6 @@ export const TicketsService = {
       });
     }
 
-    return updated;
+    return withTicketCode(updated);
   },
 };

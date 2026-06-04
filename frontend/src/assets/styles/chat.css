@@ -39,7 +39,7 @@ body {
 }
 
 /* BACK BUTTON */
-.back-button {
+.chat-header .back-button {
     width: 38px;
     height: 38px;
 
@@ -57,7 +57,7 @@ body {
     transition: 0.2s;
 }
 
-.back-button:hover {
+.chat-header .back-button:hover {
     background: rgba(255,255,255,0.08);
 }
 
@@ -396,4 +396,442 @@ body {
     display: block;
 
     margin-bottom: 8px;
+}
+
+.unresolved-card{
+    margin-top:20px;
+    width:100%;
+    max-width:640px;
+
+    background:#F7EFC8;
+    border-radius:16px;
+
+    padding:20px;
+}
+
+.unresolved-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    font-size:22px;
+    font-weight:600;
+
+    color:#1B2336;
+}
+
+.unresolved-title i{
+    color:#FF6B00;
+}
+
+.unresolved-description{
+    margin-top:12px;
+    margin-bottom:16px;
+
+    color:#676E80;
+    font-size:14px;
+}
+
+.faq-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.faq-item{
+    background:#FFFFFF;
+
+    border-radius:10px;
+
+    padding:12px;
+
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+}
+
+.faq-icon{
+    color:#3B82F6;
+}
+
+.faq-question{
+    font-size:15px;
+    font-weight:500;
+    color:#1B2336;
+}
+
+.faq-category{
+    margin-top:4px;
+
+    font-size:12px;
+    color:#676E80;
+}
+
+.faq-actions{
+    margin-top:16px;
+
+    display:flex;
+    gap:12px;
+}
+
+.faq-btn{
+    flex:1;
+
+    border:none;
+
+    height:44px;
+
+    border-radius:10px;
+
+    background:#FFFFFF;
+
+    color:#1B2336;
+
+    cursor:pointer;
+}
+
+.escalate-btn{
+    flex:1;
+
+    border:none;
+
+    height:44px;
+
+    border-radius:10px;
+
+    background:#FF6B00;
+
+    color:white;
+
+    cursor:pointer;
+}
+
+/* ==========================
+   ESCALATE MODAL
+========================== */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+
+    background:rgba(0,0,0,.45);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    z-index:999;
+}
+
+.escalate-modal{
+    width:520px;
+
+    background:#C0D0E5;
+
+    border-radius:16px;
+
+    padding:24px;
+}
+
+.modal-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.modal-header h2{
+    margin:0;
+
+    font-size:28px;
+    font-weight:600;
+
+    color:#1B2336;
+}
+
+.close-button{
+    border:none;
+    background:none;
+
+    cursor:pointer;
+
+    font-size:20px;
+
+    color:#1B2336;
+}
+
+.modal-description{
+    margin-top:16px;
+
+    color:#3A4256;
+
+    line-height:1.6;
+}
+
+.summary-box{
+    margin-top:20px;
+
+    padding:14px;
+
+    border-radius:10px;
+
+    background:#DAE1F1;
+
+    border:1px solid #AFC2E8;
+}
+
+.summary-box h4{
+    margin:0 0 8px 0;
+
+    color:#1B2336;
+}
+
+.summary-box p{
+    margin:0;
+
+    color:#3A4256;
+
+    font-size:14px;
+}
+
+.priority-section{
+    margin-top:20px;
+}
+
+.priority-section label{
+    display:block;
+
+    margin-bottom:12px;
+
+    font-weight:600;
+
+    color:#1B2336;
+}
+
+.priority-buttons{
+    display:flex;
+    gap:12px;
+}
+
+.priority-btn{
+    flex:1;
+
+    height:46px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:white;
+
+    cursor:pointer;
+
+    font-weight:600;
+}
+
+.priority-btn.active{
+    background:#4F89E8;
+    color:white;
+}
+
+.modal-actions{
+    margin-top:24px;
+
+    display:flex;
+    gap:12px;
+}
+
+.cancel-btn{
+    flex:1;
+
+    height:48px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#D5DAE4;
+
+    cursor:pointer;
+
+    font-weight:600;
+}
+
+.create-btn{
+    flex:1;
+
+    height:48px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#3D7BF7;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:600;
+}
+
+/* ==========================
+   SUCCESS MODAL
+========================== */
+
+.success-modal{
+    width:520px;
+
+    background:#C0D0E5;
+
+    border-radius:16px;
+
+    padding:24px;
+
+    text-align:center;
+}
+
+.success-icon{
+    width:72px;
+    height:72px;
+
+    margin:0 auto 16px;
+
+    border-radius:50%;
+
+    background:#16C55B;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.success-icon i{
+    color:white;
+    font-size:34px;
+}
+
+.success-modal h2{
+    margin:0;
+
+    font-size:32px;
+    font-weight:600;
+
+    color:#1B2336;
+}
+
+.success-description{
+    margin-top:12px;
+
+    color:#676E80;
+}
+
+.ticket-info{
+    margin-top:24px;
+
+    background:#F2F2F2;
+
+    border-radius:12px;
+
+    padding:20px;
+
+    display:flex;
+    justify-content:space-between;
+}
+
+.ticket-column{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+
+    text-align:left;
+}
+
+.label{
+    font-size:12px;
+    color:#676E80;
+}
+
+.status-badge{
+    display:inline-flex;
+
+    width:max-content;
+
+    padding:4px 12px;
+
+    border-radius:999px;
+
+    background:#3B82F6;
+
+    color:white;
+
+    font-size:12px;
+    font-weight:600;
+}
+
+.priority-badge{
+    display:inline-flex;
+
+    width:max-content;
+
+    padding:4px 12px;
+
+    border-radius:999px;
+
+    font-size:12px;
+    font-weight:600;
+
+    color:white;
+}
+
+.priority-badge.low{
+    background:#9CA3AF;
+}
+
+.priority-badge.medium{
+    background:#60A5FA;
+}
+
+.priority-badge.high{
+    background:#F97316;
+}
+
+.success-actions{
+    margin-top:20px;
+
+    display:flex;
+    gap:12px;
+}
+
+.dashboard-btn{
+    flex:1;
+
+    height:52px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#D6DBE5;
+
+    cursor:pointer;
+
+    font-weight:600;
+}
+
+.tickets-btn{
+    flex:1;
+
+    height:52px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#3D7BF7;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-weight:600;
 }

@@ -6,6 +6,13 @@ export const escalateTicket = asyncHandler(async (req, res) => {
   return sendSuccess(res, await TicketsService.escalate(req.user, req.body), 201);
 });
 
+export const myTickets = asyncHandler(async (req, res) => {
+  return sendSuccess(
+    res,
+    await TicketsService.myTickets(req.user)
+  );
+});
+
 export const listTickets = asyncHandler(async (req, res) => {
   return sendSuccess(res, await TicketsService.list(req.query));
 });

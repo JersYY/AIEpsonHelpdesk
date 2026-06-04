@@ -1,4 +1,4 @@
-import ChatView from './views/ChatView.vue'
+import ChatView from './views/UserChatView.vue'
 
 const chatRoutes = [
     {

@@ -1,15 +1,15 @@
 import api from './api'
 
 const getUserDashboard = () => {
-    return api.get('/dashboard/user')
+    return api.get('/dashboard')
 }
 
 const getPopularIssues = () => {
-    return api.get('/dashboard/popular')
+    return api.get('/dashboard/popular-issues')
 }
 
 const getRecentActivity = () => {
-    return api.get('/dashboard/recent')
+    return api.get('/dashboard/recent-activity')
 }
 
 export default {

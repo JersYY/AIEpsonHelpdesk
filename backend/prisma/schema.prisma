@@ -161,6 +161,7 @@ model SuggestedQuestion {
 
 model EscalationTicket {
   id        String          @id @default(uuid())
+  ticketNumber Int         @unique @default(autoincrement())
   sessionId String
   userId    String
   categoryId String?
