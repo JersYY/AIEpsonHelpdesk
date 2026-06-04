@@ -13,7 +13,7 @@ const ticketInclude = {
 const formatTicketCode = (ticketNumber) => {
   if (!ticketNumber) return null;
 
-  return `TKT-${String(ticketNumber).padStart(4, "0")}`;
+  return `TKT-${String(ticketNumber).padStart(3, "0")}`;
 };
 
 const withTicketCode = (ticket) => {
@@ -70,6 +70,7 @@ export const TicketsService = {
     const summary = buildConversationSummary(session.messages);
 
     const ticket = await prisma.$transaction(async (tx) => {
+
       const created = await tx.escalationTicket.create({
         data: {
           sessionId: session.id,
