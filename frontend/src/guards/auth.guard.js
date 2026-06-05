@@ -7,6 +7,8 @@ export const defaultRouteForRole = (role) => {
   return '/login'
 }
 
+const isActiveAccount = (auth) => (auth.user?.accountStatus || 'ACTIVE') === 'ACTIVE'
+
 // Global guard: enforce auth + role on routes via meta.
 export const installGuards = (router) => {
   router.beforeEach(async (to) => {
@@ -22,9 +24,10 @@ export const installGuards = (router) => {
       }
     }
 
-    // Public routes (login)
+    // Public routes (landing/login/register)
     if (to.meta.public) {
-      if (auth.isAuthenticated && auth.role && to.name === 'login') {
+      if (auth.isAuthenticated && auth.role && ['landing', 'login', 'register'].includes(to.name)) {
+        if (!isActiveAccount(auth)) return { name: 'pending-approval' }
         return { path: defaultRouteForRole(auth.role) }
       }
       return true
@@ -32,6 +35,15 @@ export const installGuards = (router) => {
 
     if (!auth.isAuthenticated) {
       return { name: 'login', query: { redirect: to.fullPath } }
+    }
+
+    if (to.name === 'pending-approval' && isActiveAccount(auth)) {
+      return { path: defaultRouteForRole(auth.role) }
+    }
+
+    if (!isActiveAccount(auth)) {
+      if (to.name === 'pending-approval') return true
+      return { name: 'pending-approval' }
     }
 
     // Authenticated but role still unknown -> send to login to re-auth cleanly.

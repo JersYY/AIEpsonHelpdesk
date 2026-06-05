@@ -16,6 +16,7 @@ const signToken = (user) => {
       sub: user.id,
       employeeId: user.employeeId,
       role: user.role,
+      accountStatus: user.accountStatus,
     },
     env.JWT_SECRET,
     { expiresIn: "1d" },
@@ -23,6 +24,66 @@ const signToken = (user) => {
 };
 
 export const AuthService = {
+  async register({
+    employeeId,
+    employeeID,
+    employee_id: employeeIdSnake,
+    idEmployee,
+    name,
+    email,
+    department,
+    password,
+  } = {}) {
+    const cleanEmployeeId = String(
+      employeeId ?? employeeID ?? employeeIdSnake ?? idEmployee ?? "",
+    ).trim();
+    const cleanName = String(name ?? "").replace(/\s+/g, " ").trim();
+    const cleanEmail = String(email ?? "").trim().toLowerCase();
+    const cleanDepartment = String(department ?? "").replace(/\s+/g, " ").trim();
+    const cleanPassword = String(password ?? "");
+
+    if (!cleanEmployeeId || !cleanName || !cleanEmail || !cleanPassword) {
+      throw new ApiError(400, "Employee ID, name, email, and password are required");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new ApiError(400, "Invalid email format");
+    }
+    if (cleanPassword.length < 8) {
+      throw new ApiError(400, "Password must be at least 8 characters");
+    }
+
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { employeeId: { equals: cleanEmployeeId, mode: "insensitive" } },
+          { email: { equals: cleanEmail, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    if (existing) {
+      throw new ApiError(409, "Employee ID or email already registered");
+    }
+
+    const passwordHash = await bcrypt.hash(cleanPassword, 10);
+    const user = await prisma.user.create({
+      data: {
+        employeeId: cleanEmployeeId,
+        name: cleanName,
+        email: cleanEmail,
+        department: cleanDepartment || null,
+        passwordHash,
+        role: "USER",
+        accountStatus: "PENDING",
+      },
+    });
+
+    return {
+      user: sanitizeUser(user),
+      token: signToken(user),
+    };
+  },
+
   async login({
     employeeId,
     employeeID,

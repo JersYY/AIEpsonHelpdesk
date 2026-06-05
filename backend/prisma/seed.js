@@ -34,20 +34,15 @@ const seedUsers = async () => {
       employeeId: "ADM001",
       name: "Epson Admin",
       role: "ADMIN",
+      accountStatus: "ACTIVE",
       department: "IT",
-    },
-    {
-      email: "operator.assembly@epson.local",
-      employeeId: "EMP001",
-      name: "Assembly Operator",
-      role: "USER",
-      department: "Assembly",
     },
     {
       email: "helpdesk@epson.local",
       employeeId: "HD001",
       name: "Helpdesk Agent",
       role: "HELPDESK",
+      accountStatus: "ACTIVE",
       department: "Helpdesk",
     },
   ];
@@ -63,12 +58,12 @@ const seedUsers = async () => {
 
 const seedCategories = async () => {
   const categories = [
-    ["Print Quality Issue", "Banding, missing dots, ink smear, faint output, or alignment defects."],
-    ["Scanner Error", "ADF jam, calibration failure, scan line artifacts, or sensor issues."],
-    ["Network Issue", "Printer discovery, IP conflict, Wi-Fi, Ethernet, or print server failures."],
-    ["Hardware Problem", "Mechanical, sensor, motor, cover, or physical component problems."],
-    ["Firmware Problem", "Firmware update, version mismatch, or device behavior after upgrade."],
-    ["Part Problem", "Consumable, spare part, cable, tray, roller, or replacement part issues."],
+    ["Print Quality Issue", "Masalah hasil cetak seperti garis, missing dot, tinta meleber, warna pudar, atau alignment tidak presisi."],
+    ["Scanner Error", "Masalah scanner seperti ADF macet, kalibrasi gagal, garis pada hasil scan, atau gangguan sensor."],
+    ["Network Issue", "Masalah koneksi seperti printer tidak terdeteksi, konflik IP, Wi-Fi, Ethernet, atau gangguan print server."],
+    ["Hardware Problem", "Masalah mekanik atau fisik seperti sensor, motor, cover, jalur kertas, atau komponen perangkat."],
+    ["Firmware Problem", "Masalah firmware seperti proses update, versi tidak sesuai, atau perubahan perilaku perangkat setelah upgrade."],
+    ["Part Problem", "Masalah consumable atau spare part seperti kabel, tray, roller, cartridge, tinta, atau part pengganti."],
   ];
 
   const result = {};
@@ -116,21 +111,21 @@ const seedKnowledge = async (categories) => {
       source: "Internal SOP PQ-001",
       categoryId: categories["Print Quality Issue"].id,
       content:
-        "When banding appears on Epson production print output, confirm the nozzle check result, ink supply status, platen cleanliness, and media alignment. Run head cleaning only after verifying the ink path and maintenance tank status. If the defect repeats after cleaning and alignment, capture sample output, printer serial number, ink lot, and environmental condition before escalation.",
+        "Jika hasil cetak Epson terlihat bergaris atau warna tidak rata, lakukan nozzle check terlebih dahulu dan simpan hasilnya. Periksa status tinta, kebersihan platen, posisi media, serta alignment head sebelum menjalankan head cleaning. Head cleaning hanya dilakukan setelah jalur tinta dan maintenance tank dipastikan normal. Jika defect tetap muncul setelah cleaning dan alignment, lampirkan sample output, serial number printer, lot tinta, serta kondisi lingkungan sebelum eskalasi ke helpdesk.",
     },
     {
       title: "Scanner ADF Jam Recovery",
       source: "Internal SOP SCN-014",
       categoryId: categories["Scanner Error"].id,
       content:
-        "For scanner ADF jam or skew symptoms, stop the scan job, remove paper in the feed direction, inspect separation pad and pickup roller wear, clean dust from the paper path, and run a calibration scan. If the ADF sensor remains active after the paper path is clear, log the sensor state and escalate to helpdesk with an image of the feed area.",
+        "Untuk gejala ADF macet, kertas miring, atau hasil scan tidak masuk sempurna, hentikan pekerjaan scan terlebih dahulu. Keluarkan kertas mengikuti arah feed, lalu periksa kondisi separation pad, pickup roller, dan jalur kertas. Bersihkan debu pada paper path dan jalankan calibration scan. Jika sensor ADF masih aktif walaupun jalur sudah kosong, catat status sensor dan eskalasikan ke helpdesk dengan foto area feed.",
     },
     {
       title: "Network Printer Discovery Checklist",
       source: "Internal SOP NET-022",
       categoryId: categories["Network Issue"].id,
       content:
-        "If a printer cannot be discovered on the production network, confirm link light, assigned IP address, subnet, gateway, DNS, and print server queue status. Check for duplicate IP addresses and recent DHCP reservations. Restart network service only during approved production windows. Attach ping result and device network report when escalating.",
+        "Jika printer tidak terdeteksi di jaringan produksi, pastikan lampu link menyala dan alamat IP sudah benar. Verifikasi subnet, gateway, DNS, serta status queue pada print server. Cek kemungkinan duplicate IP dan perubahan DHCP reservation terbaru. Restart network service hanya dilakukan pada window produksi yang disetujui. Saat eskalasi, lampirkan hasil ping dan network report dari perangkat.",
     },
   ];
 
@@ -142,61 +137,15 @@ const seedKnowledge = async (categories) => {
   return created;
 };
 
-const seedSuggestedQuestions = async (documents) => {
-  const questions = [
-    {
-      question: "Why does the print output have banding lines?",
-      category: "Print Quality Issue",
-      documentId: documents[0].id,
-    },
-    {
-      question: "What should I check before running head cleaning?",
-      category: "Print Quality Issue",
-      documentId: documents[0].id,
-    },
-    {
-      question: "How do I recover from an ADF jam?",
-      category: "Scanner Error",
-      documentId: documents[1].id,
-    },
-    {
-      question: "Why is the scanner still showing jam after paper removal?",
-      category: "Scanner Error",
-      documentId: documents[1].id,
-    },
-    {
-      question: "What network details are needed before escalating printer discovery failure?",
-      category: "Network Issue",
-      documentId: documents[2].id,
-    },
-  ];
-
-  for (const item of questions) {
-    const existing = await prisma.suggestedQuestion.findFirst({
-      where: { question: item.question },
-    });
-
-    if (existing) {
-      await prisma.suggestedQuestion.update({
-        where: { id: existing.id },
-        data: item,
-      });
-    } else {
-      await prisma.suggestedQuestion.create({ data: item });
-    }
-  }
-};
-
 const main = async () => {
   await seedUsers();
   const categories = await seedCategories();
-  const documents = await seedKnowledge(categories);
-  await seedSuggestedQuestions(documents);
+  await seedKnowledge(categories);
 };
 
 main()
   .then(async () => {
-    console.log("Seed completed");
+    console.log("Seed completed: admin/helpdesk accounts, categories, and knowledge base");
     await prisma.$disconnect();
   })
   .catch(async (error) => {

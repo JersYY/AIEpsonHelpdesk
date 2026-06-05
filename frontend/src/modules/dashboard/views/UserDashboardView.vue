@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import dashboardService from '../../../services/dashboard.service.js'
@@ -10,11 +10,12 @@ const user = ref({})
 const popularIssues = ref([])
 const recentActivity = ref([])
 const loading = ref(false)
+let refreshTimer = null
 
 const fmtDate = (d) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 
-onMounted(async () => {
-  loading.value = true
+const loadDashboard = async ({ quiet = false } = {}) => {
+  if (!quiet) loading.value = true
   try {
     const res = await dashboardService.getUserDashboard()
     const data = res.data.data
@@ -22,8 +23,17 @@ onMounted(async () => {
     popularIssues.value = data.popularIssues || []
     recentActivity.value = data.recentActivity || []
   } finally {
-    loading.value = false
+    if (!quiet) loading.value = false
   }
+}
+
+onMounted(() => {
+  loadDashboard()
+  refreshTimer = window.setInterval(() => loadDashboard({ quiet: true }), 10000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer) window.clearInterval(refreshTimer)
 })
 </script>
 
@@ -33,25 +43,52 @@ onMounted(async () => {
     <p class="page-subtitle">ID: {{ user.employeeId || '-' }}</p>
 
     <div class="quick-grid">
-      <button class="card quick" @click="router.push('/chat')">
+      <button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 220 } }"
+        class="card quick"
+        @click="router.push('/chat')"
+      >
         <i class="fa-regular fa-comment"></i>
         <div><strong>Mulai Chat</strong><span class="muted">Tanya AI Assistant</span></div>
       </button>
-      <button class="card quick" @click="router.push('/faq')">
+      <button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 220, delay: 45 } }"
+        class="card quick"
+        @click="router.push('/faq')"
+      >
         <i class="fa-solid fa-book-open"></i>
         <div><strong>FAQ</strong><span class="muted">Panduan troubleshooting</span></div>
       </button>
-      <button class="card quick" @click="router.push('/tickets')">
+      <button
+        v-motion
+        :initial="{ opacity: 0, y: 10 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 220, delay: 90 } }"
+        class="card quick"
+        @click="router.push('/tickets')"
+      >
         <i class="fa-solid fa-ticket"></i>
         <div><strong>Tickets Saya</strong><span class="muted">Lacak eskalasi</span></div>
       </button>
     </div>
 
     <div class="two-col">
-      <div>
-        <h3 class="sec-title">Popular Issues</h3>
-        <div class="card" style="padding: 0;">
-          <div v-for="issue in popularIssues" :key="issue.id" class="list-row">
+      <div class="dash-column">
+        <div class="section-head">
+          <h3 class="sec-title">Popular Issues</h3>
+        </div>
+        <div class="card dashboard-list-card" style="padding: 0;">
+          <div
+            v-for="(issue, index) in popularIssues"
+            :key="issue.id"
+            v-motion
+            :initial="{ opacity: 0, y: 8 }"
+            :enter="{ opacity: 1, y: 0, transition: { duration: 180, delay: index * 22 } }"
+            class="list-row"
+          >
             <div><strong>{{ issue.name }}</strong><p class="muted" style="font-size: 12px;">{{ issue.description || '-' }}</p></div>
             <span class="badge badge-medium">{{ issue.count }}</span>
           </div>
@@ -59,12 +96,17 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div>
-        <h3 class="sec-title">Aktivitas Terbaru</h3>
-        <div class="card" style="padding: 0;">
+      <div class="dash-column">
+        <div class="section-head">
+          <h3 class="sec-title">Aktivitas Terbaru</h3>
+        </div>
+        <div class="card dashboard-list-card" style="padding: 0;">
           <div
-            v-for="a in recentActivity"
+            v-for="(a, index) in recentActivity"
             :key="a.id"
+            v-motion
+            :initial="{ opacity: 0, y: 8 }"
+            :enter="{ opacity: 1, y: 0, transition: { duration: 180, delay: index * 22 } }"
             class="list-row clickable"
             @click="router.push(`/chat/${a.id}`)"
           >
@@ -85,7 +127,10 @@ onMounted(async () => {
 .quick strong { display: block; }
 .quick span { font-size: 12px; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.sec-title { margin-bottom: 12px; font-size: 15px; }
+.dash-column { display: flex; flex-direction: column; min-width: 0; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sec-title { margin: 0; font-size: 15px; }
+.dashboard-list-card { flex: 1; min-height: 236px; overflow: hidden; }
 .list-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--color-border); }
 .list-row:last-child { border-bottom: none; }
 .list-row.clickable { cursor: pointer; }

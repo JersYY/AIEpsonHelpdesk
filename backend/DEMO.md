@@ -1,4 +1,4 @@
-# Postman Demo: Epson AI Helpdesk Backend
+# Postman Demo: Epson Helpdesk Backend
 
 Dokumen ini berisi alur demo end-to-end memakai Postman.
 
@@ -28,9 +28,11 @@ Tambahkan variables:
 | `user_token` | kosong | kosong |
 | `admin_token` | kosong | kosong |
 | `helpdesk_token` | kosong | kosong |
+| `operator_user_id` | kosong | kosong |
 | `session_id` | kosong | kosong |
 | `image_id` | kosong | kosong |
 | `ticket_id` | kosong | kosong |
+| `category_id` | kosong | kosong |
 | `knowledge_id` | kosong | kosong |
 
 Aktifkan environment tersebut sebelum menjalankan request.
@@ -62,12 +64,12 @@ Expected response:
 }
 ```
 
-## 4. Login User
+## 4. Register User Operator
 
 Request:
 
 ```txt
-POST {{base_url}}/api/auth/login
+POST {{base_url}}/api/auth/register
 ```
 
 Headers:
@@ -80,7 +82,10 @@ Body:
 
 ```json
 {
-  "employeeId": "EMP001",
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
   "password": "Password123!"
 }
 ```
@@ -90,6 +95,7 @@ Tests tab:
 ```javascript
 const json = pm.response.json();
 pm.environment.set("user_token", json.data.token);
+pm.environment.set("operator_user_id", json.data.user.id);
 ```
 
 Expected:
@@ -99,8 +105,9 @@ Expected:
   "success": true,
   "data": {
     "user": {
-      "employeeId": "EMP001",
-      "role": "USER"
+      "employeeId": "EMP002",
+      "role": "USER",
+      "accountStatus": "PENDING"
     },
     "token": "jwt-token"
   }
@@ -125,11 +132,73 @@ Expected data:
 
 ```json
 {
-  "employeeId": "EMP001",
-  "name": "Assembly Operator",
-  "role": "USER"
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "role": "USER",
+  "accountStatus": "PENDING"
 }
 ```
+
+## 5A. Approve Operator Sebelum Lanjut Demo User
+
+Operator hasil register masih terkunci sampai admin approve. Jika langkah ini dilewati, endpoint protected seperti dashboard, chat, ticket, dan upload akan mengembalikan `403`.
+
+Login admin:
+
+```txt
+POST {{base_url}}/api/auth/login
+```
+
+Body:
+
+```json
+{
+  "employeeId": "ADM001",
+  "password": "Password123!"
+}
+```
+
+Tests tab:
+
+```javascript
+const json = pm.response.json();
+pm.environment.set("admin_token", json.data.token);
+```
+
+List akun pending:
+
+```txt
+GET {{base_url}}/api/admin/accounts?status=PENDING
+```
+
+Auth:
+
+```txt
+Bearer Token: {{admin_token}}
+```
+
+Approve operator:
+
+```txt
+PATCH {{base_url}}/api/admin/accounts/{{operator_user_id}}/status
+```
+
+Auth:
+
+```txt
+Bearer Token: {{admin_token}}
+```
+
+Body:
+
+```json
+{
+  "status": "ACTIVE",
+  "reviewNote": "Verified for demo"
+}
+```
+
+Setelah approve, token user yang dibuat saat register dapat dipakai untuk langkah dashboard dan chat di bawah.
 
 ## 6. User Dashboard
 
@@ -170,7 +239,7 @@ Auth:
 Bearer Token: {{user_token}}
 ```
 
-Note: saat belum ada chat/ticket, response fallback ke seed `IssueCategory`.
+Note: endpoint ini menghitung `ChatSession` non-temporary/non-deleted dan `EscalationTicket` per kategori dalam window 30 hari terakhir. Saat belum ada chat/ticket, response fallback ke seed `IssueCategory` dengan `count: 0`.
 
 ## 8. Start Chat
 
@@ -223,6 +292,7 @@ Expected response contains:
     "aiMessage": {
       "sender": "AI",
       "confidenceScore": 0.82,
+      "knowledgeGrounded": true,
       "responseTimeMs": 100
     },
     "provider": "mock"
@@ -388,9 +458,10 @@ Expected response contains:
 
 ```json
 {
+  "ticketCode": "TKT-001",
   "status": "OPEN",
   "priority": "HIGH",
-  "summary": "Summary of recent helpdesk conversation..."
+  "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ..."
 }
 ```
 
@@ -425,6 +496,8 @@ SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
+SMTP_FROM=helpdesk@epson.local
+MAILPIT_WEB_URL=http://localhost:8025
 ```
 
 Jalankan Mailpit:
@@ -472,7 +545,12 @@ Expected if SMTP is running:
     "sent": true,
     "emailLog": {
       "status": "SENT"
-    }
+    },
+    "source": {
+      "ticketId": "{{ticket_id}}",
+      "sessionId": "{{session_id}}"
+    },
+    "mailpitUrl": "http://localhost:8025"
   }
 }
 ```
@@ -486,14 +564,21 @@ Expected if SMTP is not running:
     "sent": false,
     "emailLog": {
       "status": "FAILED"
-    }
+    },
+    "source": {
+      "ticketId": "{{ticket_id}}",
+      "sessionId": "{{session_id}}"
+    },
+    "mailpitUrl": "http://localhost:8025"
   }
 }
 ```
 
+Setelah response `sent: true`, email development muncul di Mailpit. UI helpdesk juga memakai `mailpitUrl`, `source.ticketId`, dan `source.sessionId` untuk membuka Mailpit, Email Logs, atau history chat terkait.
+
 ## 17. Login Admin
 
-Request:
+Request ini opsional jika `admin_token` sudah dibuat pada langkah 5A.
 
 ```txt
 POST {{base_url}}/api/auth/login
@@ -521,7 +606,45 @@ const json = pm.response.json();
 pm.environment.set("admin_token", json.data.token);
 ```
 
-## 18. Admin List Knowledge
+## 18. Admin Categories
+
+List category:
+
+```txt
+GET {{base_url}}/api/admin/categories
+```
+
+Auth:
+
+```txt
+Bearer Token: {{admin_token}}
+```
+
+Create category:
+
+```txt
+POST {{base_url}}/api/admin/categories
+```
+
+Body:
+
+```json
+{
+  "name": "Demo Ink Issue",
+  "description": "Category demo untuk masalah tinta, hasil cetak, dan media."
+}
+```
+
+Tests tab:
+
+```javascript
+const json = pm.response.json();
+pm.environment.set("category_id", json.data.id);
+```
+
+Catatan: dari UI admin, category juga bisa dibuat cepat dari modal dokumen knowledge.
+
+## 19. Admin List Knowledge
 
 Request:
 
@@ -535,7 +658,7 @@ Auth:
 Bearer Token: {{admin_token}}
 ```
 
-## 19. Admin Create Knowledge
+## 20. Admin Create Knowledge
 
 Request:
 
@@ -556,7 +679,7 @@ Body:
   "title": "Ink Smear Quick Check",
   "source": "Demo SOP",
   "content": "Check platen cleanliness, media curl, head height, and drying time. Capture sample output before escalation.",
-  "categoryId": null
+  "categoryId": "{{category_id}}"
 }
 ```
 
@@ -567,7 +690,7 @@ const json = pm.response.json();
 pm.environment.set("knowledge_id", json.data.id);
 ```
 
-## 20. Admin Update Knowledge
+## 21. Admin Update Knowledge
 
 Request:
 
@@ -590,7 +713,7 @@ Body:
 }
 ```
 
-## 21. Admin Chat Logs
+## 22. Admin Chat Logs
 
 Request:
 
@@ -604,7 +727,7 @@ Auth:
 Bearer Token: {{admin_token}}
 ```
 
-## 22. Admin Chat Log Detail
+## 23. Admin Chat Log Detail
 
 Request:
 
@@ -618,7 +741,7 @@ Auth:
 Bearer Token: {{admin_token}}
 ```
 
-## 23. Admin Analytics
+## 24. Admin Analytics
 
 Request:
 
@@ -645,7 +768,7 @@ Expected response contains:
 }
 ```
 
-## 24. Admin Top Issues
+## 25. Admin Top Issues
 
 Request:
 
@@ -659,7 +782,7 @@ Auth:
 Bearer Token: {{admin_token}}
 ```
 
-## 25. Login Helpdesk
+## 26. Login Helpdesk
 
 Request:
 
@@ -683,7 +806,7 @@ const json = pm.response.json();
 pm.environment.set("helpdesk_token", json.data.token);
 ```
 
-## 26. Helpdesk List Tickets
+## 27. Helpdesk List Tickets
 
 Request:
 
@@ -697,7 +820,7 @@ Auth:
 Bearer Token: {{helpdesk_token}}
 ```
 
-## 27. Helpdesk Ticket Detail
+## 28. Helpdesk Ticket Detail
 
 Request:
 
@@ -711,7 +834,19 @@ Auth:
 Bearer Token: {{helpdesk_token}}
 ```
 
-## 28. Helpdesk Update Ticket to In Progress
+Expected data contains:
+
+```json
+{
+  "ticketCode": "TKT-001",
+  "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ...",
+  "session": {
+    "messages": []
+  }
+}
+```
+
+## 29. Helpdesk Update Ticket to In Progress
 
 Request:
 
@@ -733,7 +868,7 @@ Body:
 }
 ```
 
-## 29. Helpdesk Resolve Ticket
+## 30. Helpdesk Resolve Ticket
 
 Request:
 
@@ -755,7 +890,7 @@ Body:
 }
 ```
 
-## 30. Email Logs
+## 31. Email Logs
 
 Request:
 
@@ -769,7 +904,7 @@ Auth:
 Bearer Token: {{helpdesk_token}}
 ```
 
-## 31. Logout
+## 32. Logout
 
 Request:
 
@@ -786,11 +921,11 @@ Bearer Token: {{user_token}}
 ## Suggested Postman Collection Structure
 
 ```txt
-Epson AI Helpdesk Backend
+Epson Helpdesk Backend
   01 Health
     Health Check
   02 Auth
-    Login User
+    Register User Operator
     Me
     Login Admin
     Login Helpdesk
@@ -819,6 +954,8 @@ Epson AI Helpdesk Backend
     Send Email
     Email Logs
   08 Admin
+    Account Approval
+    List/Create Categories
     List Knowledge
     Create Knowledge
     Update Knowledge
@@ -831,16 +968,16 @@ Epson AI Helpdesk Backend
 ## Demo Checklist
 
 - Health check sukses.
-- User login dan token tersimpan ke environment.
+- User operator register dengan status `PENDING`, token tersimpan, lalu admin approve akun.
 - Dashboard user terbuka.
 - Chat session dibuat dan `session_id` tersimpan.
 - AI response tersimpan.
 - Upload image berhasil dan `image_id` tersimpan.
 - Ticket dibuat dan `ticket_id` tersimpan.
-- Summary report berhasil dibuat.
-- Email log tercatat `SENT` atau `FAILED`.
-- Admin bisa melihat knowledge, chat logs, analytics, top issues.
-- Helpdesk bisa melihat dan update ticket.
+- Summary report multi-section berhasil dibuat.
+- Email log tercatat `SENT` atau `FAILED`; jika Mailpit aktif, email muncul di `http://localhost:8025`.
+- Admin bisa approve/reject account, membuat category, melihat knowledge, chat logs, analytics, top issues.
+- Helpdesk bisa melihat summary, history chat ticket, dan update status ticket.
 
 ## Reset Demo Data
 
@@ -852,4 +989,4 @@ npx prisma db execute --file prisma/sql/enable_pgvector.sql
 npm run prisma:seed
 ```
 
-Setelah reset, ulangi demo dari login user.
+Setelah reset, ulangi demo dari register operator dan approval admin.

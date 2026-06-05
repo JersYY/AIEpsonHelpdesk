@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import ticketService from '../../../services/ticket.service.js'
@@ -70,7 +70,14 @@ onMounted(load)
         </tr>
       </thead>
       <tbody>
-        <tr v-for="t in tickets" :key="t.id" @click="router.push(`/helpdesk/tickets/${t.id}`)">
+        <tr
+          v-for="(t, index) in tickets"
+          :key="t.id"
+          v-motion
+          :initial="{ opacity: 0, y: 8 }"
+          :enter="{ opacity: 1, y: 0, transition: { duration: 180, delay: index * 22 } }"
+          @click="router.push(`/helpdesk/tickets/${t.id}`)"
+        >
           <td><strong>{{ t.ticketCode }}</strong></td>
           <td>{{ t.user?.name }}<br /><span class="muted">{{ t.user?.employeeId }}</span></td>
           <td class="truncate">{{ t.summary }}</td>

@@ -34,6 +34,8 @@ const confidenceScore = ({ provider, contexts }) => {
   return provider === "gemini" ? 0.55 : 0.45;
 };
 
+const isKnowledgeGrounded = (contexts = []) => contexts.length > 0;
+
 // Visible (non-deleted) session filter helper.
 const visibleScope = (user, extra = {}) => ({
   deletedAt: null,
@@ -150,6 +152,7 @@ export const ChatService = {
           sender: "AI",
           messageText: answer.text,
           confidenceScore: confidenceScore({ provider: answer.provider, contexts }),
+          knowledgeGrounded: isKnowledgeGrounded(contexts),
         },
         contexts,
         provider: answer.provider,
@@ -224,7 +227,7 @@ export const ChatService = {
     return {
       session: updatedSession,
       userMessage,
-      aiMessage,
+      aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
       contexts,
       provider: answer.provider,
       temporary: false,
@@ -444,7 +447,7 @@ export const ChatService = {
 
     return {
       session,
-      aiMessage,
+      aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
       contexts,
       provider: answer.provider,
       prediction: buildPrediction(categoryPrediction, escalation),

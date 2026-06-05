@@ -1,18 +1,19 @@
-# Epson AI Helpdesk Assistant Backend
+# Epson Helpdesk Backend
 
-Backend API modular untuk sistem helpdesk internal Epson berbasis AI/RAG. API ini mendukung login karyawan, dashboard user, chat troubleshooting, upload gambar defect, popular issues, escalation ticket, summary report email, knowledge base admin, chat logs, dan analytics.
+Backend API modular untuk sistem helpdesk internal Epson berbasis AI/RAG. API ini mendukung login karyawan, dashboard user, chat troubleshooting, upload gambar defect, popular issues live, escalation ticket, summary ticket/email multi-section, knowledge base admin, chat logs, analytics, ML lokal, dan Mailpit/SMTP.
 
 ## Fitur Utama
 
-- Auth JWT dengan bcrypt password hashing.
-- Role `USER`, `ADMIN`, dan `HELPDESK`.
-- Dashboard user dengan quick actions, popular issues, dan recent activity.
+- Auth JWT dengan bcrypt password hashing dan approval akun operator.
+- Role `USER`, `ADMIN`, dan `HELPDESK`; register publik hanya membuat `USER` berstatus `PENDING`.
+- Dashboard user dengan quick actions, popular issues berbasis chat/ticket 30 hari terakhir, dan recent activity.
 - Chat AI/RAG dengan Gemini, semantic search pgvector, fallback keyword search, dan mock response saat `GEMINI_API_KEY` kosong.
 - Upload gambar defect via multer: JPEG, PNG, WEBP, maksimal 5MB.
 - Admin CRUD knowledge base dengan auto chunking dan auto embedding untuk RAG.
 - Admin chat logs dan analytics.
 - Escalation ticket dan status workflow.
-- Summary report dan email via nodemailer/Mailpit.
+- Summary ticket/report multi-section yang menampilkan masalah utama, konteks, respons AI terakhir, tindak lanjut helpdesk, lampiran, dan riwayat singkat.
+- Email report via nodemailer/Mailpit dengan response `source` dan `mailpitUrl` untuk flow web helpdesk.
 - Global response format, error handler, not found middleware, helmet, cors, morgan.
 
 ## Tech Stack
@@ -42,6 +43,7 @@ backend/
       files/
       health/
       knowledge/
+      ml/
       reports/
       tickets/
       users/
@@ -78,7 +80,8 @@ SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=helpdesk@epson.local
-CORS_ORIGIN=http://localhost:3000
+MAILPIT_WEB_URL=http://localhost:8025
+CORS_ORIGIN=http://localhost:5173
 ```
 
 ## Setup Singkat
@@ -117,15 +120,16 @@ Jika `GEMINI_API_KEY` kosong, command backfill akan dilewati dan chat tetap berj
 
 ## Status Database Lokal
 
-Database lokal sudah pernah berhasil disiapkan dengan hasil seed:
+Seed lokal hanya mengisi akun `ADMIN` dan `HELPDESK`, category master awal, dan knowledge base awal. Knowledge seed memakai title berbahasa Inggris dengan isi/deskripsi SOP berbahasa Indonesia. Akun operator `USER` dibuat lewat register. Data operasional lain seperti chat, tickets, email logs, learning candidates, dan suggested questions bisa dibuat manual dari UI/API.
+
+Expected data setelah seed fresh:
 
 ```json
 {
-  "users": 3,
+  "users": 2,
   "categories": 6,
   "knowledgeDocuments": 3,
-  "knowledgeChunks": 3,
-  "suggestedQuestions": 5
+  "knowledgeChunks": 3
 }
 ```
 
@@ -173,16 +177,10 @@ Default API berjalan di `http://localhost:4000`.
 
 Backend membaca origin frontend dari environment variable `CORS_ORIGIN`.
 
-Contoh untuk frontend lokal Vite/React:
+Contoh untuk frontend lokal Vue/Vite:
 
 ```env
 CORS_ORIGIN=http://localhost:5173
-```
-
-Contoh untuk frontend Next.js/default React:
-
-```env
-CORS_ORIGIN=http://localhost:3000
 ```
 
 Jika frontend memakai port lain, sesuaikan nilainya dengan origin browser yang sebenarnya, termasuk protocol dan port:
@@ -213,26 +211,58 @@ Catatan: jangan isi `CORS_ORIGIN` dengan URL backend. Isi dengan URL frontend ya
 
 ## Akun Demo
 
-Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama.
+Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama. Seed hanya membuat admin dan helpdesk; operator mendaftar melalui `/api/auth/register` atau UI `/register`, lalu harus disetujui admin sebelum bisa mengakses fitur protected.
 
 | Role | Email | Employee ID | Password |
 |---|---|---|---|
 | ADMIN | `admin@epson.local` | `ADM001` | `Password123!` |
-| USER | `operator.assembly@epson.local` | `EMP001` | `Password123!` |
 | HELPDESK | `helpdesk@epson.local` | `HD001` | `Password123!` |
 
 ## Endpoint Overview
 
 - Health: `GET /api/health`
-- Auth: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- Auth: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
 - Dashboard: `GET /api/dashboard`, `GET /api/dashboard/popular-issues`, `GET /api/dashboard/recent-activity`
-- Chat: `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions/:id`
+- Chat: `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions/:id`, `PATCH /api/chat/sessions/:id`, `DELETE /api/chat/sessions/:id`, `POST /api/chat/messages/:id/feedback`, `POST /api/chat/messages/:id/regenerate`
 - Files: `POST /api/files/upload`, `GET /api/files/:id`, `DELETE /api/files/:id`
+- Admin Categories: `GET|POST /api/admin/categories`, `PATCH|DELETE /api/admin/categories/:id`
 - Admin Knowledge: `GET|POST /api/admin/knowledge`, `PUT|DELETE /api/admin/knowledge/:id`
 - Admin Chat Logs: `GET /api/admin/chat-logs`, `GET /api/admin/chat-logs/:id`
 - Admin Analytics: `GET /api/admin/analytics`, `GET /api/admin/top-issues`
-- Tickets: `POST /api/tickets/escalate`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status`
+- Admin Accounts: `GET /api/admin/accounts`, `PATCH /api/admin/accounts/:id/status`
+- Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status`
 - Reports/Email: `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs`
+- Users: `GET/PATCH /api/users/me/preferences`
+- Learning: `GET /api/learning/candidates`, `POST /api/learning/candidates/:id/approve|reject`
+
+### Catatan Popular Issues
+
+`GET /api/dashboard/popular-issues` menghitung kategori dari `ChatSession` non-temporary/non-deleted dan `EscalationTicket` dalam window 30 hari terakhir. Jika belum ada aktivitas, response fallback ke seed `IssueCategory` dengan `count: 0`.
+
+### Catatan Approval Akun Operator
+
+`POST /api/auth/register` selalu membuat role `USER` dengan `accountStatus: PENDING`. Akun pending tetap bisa login dan membuka `/api/auth/me`, tetapi endpoint protected lain akan mengembalikan `403` sampai admin mengubah status menjadi `ACTIVE`.
+
+Admin dapat melihat dan meninjau akun operator:
+
+```txt
+GET /api/admin/accounts?status=PENDING
+PATCH /api/admin/accounts/:id/status
+```
+
+Body patch:
+
+```json
+{ "status": "ACTIVE", "reviewNote": "Verified by admin" }
+```
+
+### Catatan Category Master
+
+`/api/admin/categories` adalah master data category untuk chat, ticket, knowledge, dan learning candidate. Admin dapat membuat category sebelum membuat knowledge document, atau membuatnya cepat dari form knowledge di frontend. Delete category diblokir jika category masih dipakai data lain supaya riwayat operasional tidak kehilangan konteks.
+
+### Catatan Ticket Detail dan Summary
+
+`GET /api/tickets/:id` untuk `ADMIN`/`HELPDESK` mengembalikan `session.messages[]` read-only agar UI bisa menampilkan history chat pada detail ticket. Field `summary` di response memakai format multi-section terbaru, termasuk untuk ticket lama yang masih menyimpan summary format lama di database.
 
 ## Demo End-to-End
 
@@ -273,7 +303,7 @@ Gunakan command tersebut setelah seed, import data lama, atau migration dari sis
 
 ## Mailpit
 
-Untuk development, gunakan Mailpit dengan `SMTP_HOST=localhost` dan `SMTP_PORT=1025`. `SMTP_USER` dan `SMTP_PASS` boleh kosong. Endpoint send-email tetap mencatat `EmailLog` dengan status `SENT` atau `FAILED`.
+Untuk development, gunakan Mailpit dengan `SMTP_HOST=localhost` dan `SMTP_PORT=1025`. `SMTP_USER` dan `SMTP_PASS` boleh kosong. Endpoint send-email tetap mencatat `EmailLog` dengan status `SENT` atau `FAILED`, lalu mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` untuk dipakai UI helpdesk.
 
 Jalankan Mailpit dengan Docker:
 
@@ -289,6 +319,7 @@ SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=helpdesk@epson.local
+MAILPIT_WEB_URL=http://localhost:8025
 ```
 
 Inbox Mailpit dapat dibuka di:

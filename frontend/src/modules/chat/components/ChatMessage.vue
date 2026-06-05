@@ -33,7 +33,13 @@ const isUser = () => props.message.sender === 'USER'
 </script>
 
 <template>
-  <div class="msg" :class="isUser() ? 'user' : 'ai'">
+  <div
+    v-motion
+    :initial="{ opacity: 0, y: 8, scale: 0.99 }"
+    :enter="{ opacity: 1, y: 0, scale: 1, transition: { duration: 180 } }"
+    class="msg"
+    :class="isUser() ? 'user' : 'ai'"
+  >
     <div class="msg-avatar" :class="isUser() ? 'user' : 'ai'">
       <img v-if="!isUser()" src="/logo.png" alt="AI" />
       <span v-else><i class="fa-solid fa-user"></i></span>
@@ -62,6 +68,13 @@ const isUser = () => props.message.sender === 'USER'
       <!-- AI message -->
       <template v-else>
         <div class="msg-bubble" v-html="renderMessage(message.messageText)"></div>
+        <div v-if="message.showAiSourceNote" class="ai-source-note">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>
+            Jawaban ini disusun dari penalaran AI karena belum ada rujukan knowledge base yang cocok.
+            Jika masih ragu, eskalasikan ke tim helpdesk untuk pengecekan lanjutan.
+          </span>
+        </div>
         <div v-if="message.id" class="msg-actions">
           <button
             class="icon-btn"

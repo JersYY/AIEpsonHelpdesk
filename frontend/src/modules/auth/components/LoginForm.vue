@@ -8,6 +8,14 @@ import { defaultRouteForRole } from '../../../guards/auth.guard'
 
 import '../../../assets/styles/login.css'
 
+const props = defineProps({
+    modalMode: {
+        type: Boolean,
+        default: false,
+    },
+})
+const emit = defineEmits(['show-register'])
+
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -34,8 +42,13 @@ const handleLogin = async () => {
             password: password.value,
         })
 
-        // Load server-side preferences (theme, etc.) after login.
-        await prefs.loadRemote()
+        // Keep theme selected on landing/login, then sync it to the account.
+        await prefs.loadRemote({ preferLocalTheme: true })
+
+        if (!auth.isApproved) {
+            router.push('/pending-approval')
+            return
+        }
 
         const redirect = route.query.redirect || defaultRouteForRole(auth.role)
         router.push(redirect)
@@ -44,6 +57,14 @@ const handleLogin = async () => {
     } finally {
         loading.value = false
     }
+}
+
+const goRegister = () => {
+    if (props.modalMode) {
+        emit('show-register')
+        return
+    }
+    router.push('/register')
 }
 </script>
 
@@ -60,11 +81,11 @@ const handleLogin = async () => {
             />
 
             <h1 class="title">
-                Epson AI Helpdesk
+                Epson Helpdesk
             </h1>
 
             <p class="subtitle">
-                SMART SUPPORT. FASTER SOLUTION.
+                Akses bantuan teknis internal Epson
             </p>
 
         </div>
@@ -83,7 +104,7 @@ const handleLogin = async () => {
                 {{ errorMessage }}
             </div>
 
-            <!-- EMAIL -->
+            <!-- EMPLOYEE ID -->
             <div class="form-group">
 
                 <label>ID Karyawan</label>
@@ -91,7 +112,7 @@ const handleLogin = async () => {
                 <input
                     v-model="employeeId"
                     type="text"
-                    placeholder="Enter your employee ID"
+                    placeholder="Masukkan ID Karyawan"
                 />
 
             </div>
@@ -104,7 +125,7 @@ const handleLogin = async () => {
                 <input
                     v-model="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder="Masukkan password"
                 />
 
             </div>
@@ -113,9 +134,15 @@ const handleLogin = async () => {
             <button
                 class="login-button"
                 type="submit"
+                :disabled="loading"
             >
-                {{ loading ? 'LOADING...' : 'LOGIN' }}
+                {{ loading ? 'Memproses...' : 'Login' }}
             </button>
+
+            <p class="auth-switch">
+                Belum punya akun operator?
+                <button type="button" @click="goRegister">Register</button>
+            </p>
 
         </form>
     </div>

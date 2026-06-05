@@ -64,6 +64,8 @@ export const TicketsService = {
     const session = await prisma.chatSession.findUnique({
       where: { id: payload.sessionId },
       include: {
+        user: { select: { id: true, employeeId: true, name: true, email: true, department: true } },
+        category: true,
         messages: {
           orderBy: { createdAt: "asc" },
           include: { image: true },
@@ -77,24 +79,35 @@ export const TicketsService = {
     }
 
     const categoryId = payload.categoryId || session.categoryId || null;
+    let category = session.category || null;
     if (categoryId) {
-      const category = await prisma.issueCategory.findUnique({ where: { id: categoryId } });
+      category = await prisma.issueCategory.findUnique({ where: { id: categoryId } });
       if (!category) throw new ApiError(404, "Issue category not found");
     }
-
-    const summary = buildConversationSummary(session.messages);
 
     // ML: suggest a priority from the conversation; use it as default when the
     // caller did not specify one.
     let suggestedPriority = null;
     try {
-      const prediction = await MlService.predictPriority(summary);
+      const prediction = await MlService.predictPriority(
+        buildConversationSummary(session.messages, {
+          requester: session.user,
+          category,
+          priority: payload.priority || "MEDIUM",
+        }),
+      );
       suggestedPriority = prediction.label;
     } catch {
       suggestedPriority = null;
     }
 
     const resolvedPriority = payload.priority || suggestedPriority || "MEDIUM";
+    const summary = buildConversationSummary(session.messages, {
+      requester: session.user,
+      category,
+      priority: resolvedPriority,
+      status: "OPEN",
+    });
 
     const ticket = await prisma.$transaction(async (tx) => {
 
@@ -163,11 +176,31 @@ export const TicketsService = {
   async getById(id) {
     const ticket = await prisma.escalationTicket.findUnique({
       where: { id },
-      include: ticketInclude,
+      include: {
+        ...ticketInclude,
+        session: {
+          include: {
+            user: { select: { id: true, employeeId: true, name: true, email: true, department: true } },
+            category: true,
+            messages: {
+              orderBy: { createdAt: "asc" },
+              include: { image: true },
+            },
+          },
+        },
+      },
     });
 
     if (!ticket) throw new ApiError(404, "Ticket not found");
-    return withTicketCode(ticket);
+    return withTicketCode({
+      ...ticket,
+      summary: buildConversationSummary(ticket.session.messages, {
+        requester: ticket.session.user || ticket.user,
+        category: ticket.category || ticket.session.category,
+        priority: ticket.priority,
+        status: ticket.status,
+      }),
+    });
   },
 
   async updateStatus(id, payload) {

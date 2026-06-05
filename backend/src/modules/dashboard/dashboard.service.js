@@ -1,15 +1,31 @@
 import { prisma } from "../../config/prisma.js";
 
-const mapCategoryCounts = async (limit = 6) => {
+const trendingWindowStart = (days = 30) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date;
+};
+
+const mapCategoryCounts = async (limit = 6, options = {}) => {
+  const since = options.since || trendingWindowStart(30);
+
   const [sessionGroups, ticketGroups] = await Promise.all([
     prisma.chatSession.groupBy({
       by: ["categoryId"],
-      where: { categoryId: { not: null } },
+      where: {
+        categoryId: { not: null },
+        isTemporary: false,
+        deletedAt: null,
+        updatedAt: { gte: since },
+      },
       _count: { _all: true },
     }),
     prisma.escalationTicket.groupBy({
       by: ["categoryId"],
-      where: { categoryId: { not: null } },
+      where: {
+        categoryId: { not: null },
+        createdAt: { gte: since },
+      },
       _count: { _all: true },
     }),
   ]);
@@ -30,6 +46,7 @@ const mapCategoryCounts = async (limit = 6) => {
       name: category.name,
       description: category.description,
       count: 0,
+      windowDays: 30,
     }));
   }
 
@@ -43,6 +60,7 @@ const mapCategoryCounts = async (limit = 6) => {
       name: category.name,
       description: category.description,
       count: counts.get(category.id) || 0,
+      windowDays: 30,
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
     .slice(0, limit);

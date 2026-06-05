@@ -1,17 +1,16 @@
 import { defineStore } from 'pinia'
 import chatService from '../services/chat.service'
 
-const WELCOME = {
-  sender: 'AI',
-  messageText: "Halo! Saya Epson AI Helpdesk Assistant. Ada kendala pada printer, scanner, jaringan, atau perangkat Epson lain yang bisa saya bantu cek hari ini?",
-  id: null,
-  feedback: null,
-}
+const withAiSourceMeta = (aiMessage = {}, contexts = []) => ({
+  ...aiMessage,
+  knowledgeGrounded: Boolean(aiMessage.knowledgeGrounded ?? contexts.length),
+  showAiSourceNote: aiMessage.sender === 'AI' && !Boolean(aiMessage.knowledgeGrounded ?? contexts.length),
+})
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
     history: [],
-    messages: [WELCOME],
+    messages: [],
     sessionId: null,
     contexts: [],
     lastConfidence: null,
@@ -22,7 +21,7 @@ export const useChatStore = defineStore('chat', {
 
   actions: {
     resetThread() {
-      this.messages = [WELCOME]
+      this.messages = []
       this.sessionId = null
       this.contexts = []
       this.lastConfidence = null
@@ -61,8 +60,8 @@ export const useChatStore = defineStore('chat', {
           messageText: m.messageText,
           image: m.image ? `/uploads/${m.image.storedName}` : null,
           feedback: m.feedback || null,
+          showAiSourceNote: false,
         }))
-        if (!this.messages.length) this.messages = [WELCOME]
       } finally {
         this.loading = false
       }
@@ -88,12 +87,13 @@ export const useChatStore = defineStore('chat', {
 
         this.contexts = payload.contexts || []
         this.lastConfidence = payload.aiMessage?.confidenceScore ?? null
-        this.messages.push({
+        this.messages.push(withAiSourceMeta({
           id: payload.aiMessage?.id || null,
           sender: 'AI',
           messageText: payload.aiMessage?.messageText || 'No response',
           feedback: null,
-        })
+          knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
+        }, this.contexts))
         return payload
       } finally {
         this.sending = false
@@ -105,17 +105,20 @@ export const useChatStore = defineStore('chat', {
       try {
         const { data } = await chatService.regenerateMessage(messageId)
         const payload = data.data
+        const nextContexts = payload.contexts || []
         // Replace the last AI message.
         const idx = this.messages.findIndex((m) => m.id === messageId)
         if (idx !== -1) {
-          this.messages.splice(idx, this.messages.length - idx, {
+          this.messages.splice(idx, this.messages.length - idx, withAiSourceMeta({
             id: payload.aiMessage.id,
             sender: 'AI',
             messageText: payload.aiMessage.messageText,
             feedback: null,
-          })
+            knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
+          }, nextContexts))
         }
-        this.contexts = payload.contexts || []
+        this.contexts = nextContexts
+        this.lastConfidence = payload.aiMessage?.confidenceScore ?? null
       } finally {
         this.sending = false
       }
@@ -126,6 +129,7 @@ export const useChatStore = defineStore('chat', {
       try {
         const { data } = await chatService.editMessage(messageId, newText)
         const payload = data.data
+        const nextContexts = payload.contexts || []
         // Update the edited user message and drop everything after it, then
         // append the freshly generated AI answer.
         const idx = this.messages.findIndex((m) => m.id === messageId)
@@ -133,13 +137,15 @@ export const useChatStore = defineStore('chat', {
           this.messages[idx] = { ...this.messages[idx], messageText: newText }
           this.messages.splice(idx + 1)
         }
-        this.messages.push({
+        this.messages.push(withAiSourceMeta({
           id: payload.aiMessage.id,
           sender: 'AI',
           messageText: payload.aiMessage.messageText,
           feedback: null,
-        })
-        this.contexts = payload.contexts || []
+          knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
+        }, nextContexts))
+        this.contexts = nextContexts
+        this.lastConfidence = payload.aiMessage?.confidenceScore ?? null
       } finally {
         this.sending = false
       }

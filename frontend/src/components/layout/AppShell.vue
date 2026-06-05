@@ -78,6 +78,7 @@ const navLinks = computed(() => {
   }
   if (role.value === 'ADMIN') {
     links.push({ label: 'Analytics', icon: 'fa-chart-line', to: '/admin/analytics' })
+    links.push({ label: 'Accounts', icon: 'fa-user-check', to: '/admin/accounts' })
     links.push({ label: 'Chat Logs', icon: 'fa-comments', to: '/admin/chat-logs' })
     links.push({ label: 'Knowledge', icon: 'fa-database', to: '/admin/knowledge' })
     links.push({ label: 'Learning Review', icon: 'fa-graduation-cap', to: '/admin/learning-candidates' })
@@ -146,7 +147,7 @@ const doArchive = async (id) => {
 const doLogout = async () => {
   userMenuOpen.value = false
   await auth.logout()
-  router.push('/login')
+  router.push('/')
 }
 
 const closeMenus = () => {
@@ -295,7 +296,11 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="app-content">
-        <router-view />
+        <router-view v-slot="{ Component, route }">
+          <Transition name="route-fade" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
+          </Transition>
+        </router-view>
       </div>
     </div>
 

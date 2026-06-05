@@ -28,9 +28,11 @@ const filteredFaqs = computed(() =>
 <template>
   <div class="content-pad">
     <h1 class="page-title">Knowledge Base</h1>
-    <p class="page-subtitle">Temukan jawaban untuk pertanyaan umum.</p>
+    <p class="page-subtitle">
+      Jelajahi panduan troubleshooting Epson yang paling sering dibutuhkan di area kerja internal.
+    </p>
 
-    <input v-model="search" class="input" placeholder="Cari pertanyaan..." style="margin-bottom: 14px;" />
+    <input v-model="search" class="input" placeholder="Cari panduan atau kendala..." style="margin-bottom: 14px;" />
 
     <div class="cat-filter">
       <button

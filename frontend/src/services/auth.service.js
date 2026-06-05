@@ -5,6 +5,11 @@ const login = async (payload) => {
   return response.data
 }
 
+const register = async (payload) => {
+  const response = await api.post('/auth/register', payload)
+  return response.data
+}
+
 const me = async () => {
   const response = await api.get('/auth/me')
   return response.data
@@ -17,6 +22,7 @@ const logout = async () => {
 
 export default {
   login,
+  register,
   me,
   logout,
 }

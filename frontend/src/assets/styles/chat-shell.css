@@ -97,6 +97,25 @@
 }
 .msg-bubble li { line-height: 1.55; }
 
+.ai-source-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 620px;
+  border: 1px solid rgba(161, 92, 7, 0.26);
+  background: rgba(161, 92, 7, 0.08);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-source-note i {
+  color: var(--color-warning);
+  margin-top: 2px;
+}
+
 .msg-image {
   max-width: 260px;
   border-radius: var(--radius-md);

@@ -1,10 +1,10 @@
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "Epson AI Helpdesk API",
+    title: "Epson Helpdesk API",
     version: "1.0.0",
     description:
-      "OpenAPI documentation for Epson AI Helpdesk backend. Login with employeeId and use the returned JWT as Bearer token for protected endpoints.",
+      "OpenAPI documentation for Epson Helpdesk backend. Operators can register as USER, then wait for admin approval before using protected helpdesk features.",
   },
   servers: [
     {
@@ -23,6 +23,7 @@ export const openApiSpec = {
     { name: "Chat" },
     { name: "Files" },
     { name: "Knowledge" },
+    { name: "Categories" },
     { name: "Admin" },
     { name: "Tickets" },
     { name: "Reports" },
@@ -56,11 +57,15 @@ export const openApiSpec = {
         type: "object",
         properties: {
           id: { type: "string", format: "uuid" },
-          employeeId: { type: "string", example: "EMP001" },
-          name: { type: "string", example: "Assembly Operator" },
-          email: { type: "string", format: "email", example: "operator.assembly@epson.local" },
+          employeeId: { type: "string", example: "EMP002" },
+          name: { type: "string", example: "Production Operator" },
+          email: { type: "string", format: "email", example: "operator.production@epson.local" },
           role: { type: "string", enum: ["USER", "ADMIN", "HELPDESK"] },
+          accountStatus: { type: "string", enum: ["PENDING", "ACTIVE", "REJECTED"], example: "ACTIVE" },
           department: { type: "string", nullable: true, example: "Assembly" },
+          approvedAt: { type: "string", format: "date-time", nullable: true },
+          rejectedAt: { type: "string", format: "date-time", nullable: true },
+          reviewNote: { type: "string", nullable: true },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -72,6 +77,18 @@ export const openApiSpec = {
           name: { type: "string", example: "Print Quality Issue" },
           description: { type: "string", nullable: true },
           count: { type: "integer", example: 3 },
+          usage: {
+            type: "object",
+            nullable: true,
+            properties: {
+              chatSessions: { type: "integer", example: 2 },
+              knowledgeDocuments: { type: "integer", example: 1 },
+              escalationTickets: { type: "integer", example: 0 },
+              knowledgeCandidates: { type: "integer", example: 0 },
+            },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
         },
       },
       ChatSession: {
@@ -97,6 +114,11 @@ export const openApiSpec = {
           messageText: { type: "string" },
           imageId: { type: "string", format: "uuid", nullable: true },
           confidenceScore: { type: "number", nullable: true, example: 0.82 },
+          knowledgeGrounded: {
+            type: "boolean",
+            nullable: true,
+            description: "Present on freshly generated AI responses; false means the answer was not grounded by a knowledge base context.",
+          },
           responseTimeMs: { type: "integer", nullable: true, example: 920 },
           feedback: { type: "string", enum: ["UP", "DOWN"], nullable: true },
           editedAt: { type: "string", format: "date-time", nullable: true },
@@ -252,6 +274,56 @@ export const openApiSpec = {
         },
       },
     },
+    "/auth/register": {
+      post: {
+        tags: ["Auth"],
+        summary: "Register operator account",
+        description: "Public registration for operator accounts only. Backend always creates role USER with accountStatus PENDING; ADMIN and HELPDESK accounts are managed by seed/database/admin process.",
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["employeeId", "name", "email", "password"],
+                properties: {
+                  employeeId: { type: "string", example: "EMP002" },
+                  name: { type: "string", example: "Production Operator" },
+                  email: { type: "string", format: "email", example: "operator.production@epson.local" },
+                  department: { type: "string", nullable: true, example: "Assembly" },
+                  password: { type: "string", minLength: 8, example: "Password123!" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Operator registered with PENDING approval status and authenticated for the locked pending page.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        user: { $ref: "#/components/schemas/User" },
+                        token: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Validation failed." },
+          409: { description: "Employee ID or email already registered." },
+        },
+      },
+    },
     "/auth/login": {
       post: {
         tags: ["Auth"],
@@ -265,7 +337,7 @@ export const openApiSpec = {
                 type: "object",
                 required: ["employeeId", "password"],
                 properties: {
-                  employeeId: { type: "string", example: "EMP001" },
+                  employeeId: { type: "string", example: "ADM001" },
                   password: { type: "string", example: "Password123!" },
                 },
               },
@@ -793,6 +865,95 @@ export const openApiSpec = {
         },
       },
     },
+    "/admin/categories": {
+      get: {
+        tags: ["Categories"],
+        summary: "List issue categories",
+        description: "Requires ADMIN role. Used by the Knowledge Base category tab and document form.",
+        responses: {
+          200: {
+            description: "Issue category list with usage counters.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { type: "array", items: { $ref: "#/components/schemas/IssueCategory" } },
+                  },
+                },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+      post: {
+        tags: ["Categories"],
+        summary: "Create issue category",
+        description: "Requires ADMIN role. Category name must be unique, case-insensitive.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name"],
+                properties: {
+                  name: { type: "string", example: "Network Issue" },
+                  description: { type: "string", nullable: true, example: "Printer discovery, IP, gateway, DNS, and queue issues." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Issue category created." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          409: { description: "Category name already exists." },
+        },
+      },
+    },
+    "/admin/categories/{id}": {
+      patch: {
+        tags: ["Categories"],
+        summary: "Update issue category",
+        description: "Requires ADMIN role. Supports partial updates.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string", example: "Network Issue" },
+                  description: { type: "string", nullable: true },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Issue category updated." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+          409: { description: "Category name already exists." },
+        },
+      },
+      delete: {
+        tags: ["Categories"],
+        summary: "Delete issue category",
+        description: "Requires ADMIN role. Delete is blocked when category is still used by chat sessions, knowledge documents, escalation tickets, or learning candidates.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Issue category deleted." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+          409: { description: "Category is still used." },
+        },
+      },
+    },
     "/admin/chat-logs": {
       get: {
         tags: ["Admin"],
@@ -843,6 +1004,66 @@ export const openApiSpec = {
         responses: {
           200: { description: "Top issue categories." },
           403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/accounts": {
+      get: {
+        tags: ["Admin"],
+        summary: "List operator accounts for approval",
+        description: "Requires ADMIN role. Returns USER accounts filtered by approval status.",
+        parameters: [
+          {
+            name: "status",
+            in: "query",
+            schema: { type: "string", enum: ["PENDING", "ACTIVE", "REJECTED", "ALL"], default: "PENDING" },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Operator account list.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: { type: "array", items: { $ref: "#/components/schemas/User" } },
+                  },
+                },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/accounts/{id}/status": {
+      patch: {
+        tags: ["Admin"],
+        summary: "Approve or reject an operator account",
+        description: "Requires ADMIN role. Only USER accounts can be reviewed.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: {
+                  status: { type: "string", enum: ["ACTIVE", "REJECTED"], example: "ACTIVE" },
+                  reviewNote: { type: "string", nullable: true, example: "Verified by HR/admin." },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Operator account status updated." },
+          400: { description: "Invalid status." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
         },
       },
     },

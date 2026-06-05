@@ -7,6 +7,12 @@ export const AdminService = {
   topIssues() {
     return api.get('/admin/top-issues')
   },
+  accounts(params) {
+    return api.get('/admin/accounts', { params })
+  },
+  updateAccountStatus(id, payload) {
+    return api.patch(`/admin/accounts/${id}/status`, payload)
+  },
   chatLogs(params) {
     return api.get('/admin/chat-logs', { params })
   },
@@ -25,6 +31,19 @@ export const AdminService = {
   },
   deleteKnowledge(id) {
     return api.delete(`/admin/knowledge/${id}`)
+  },
+  // Category CRUD (admin)
+  listCategories() {
+    return api.get('/admin/categories')
+  },
+  createCategory(payload) {
+    return api.post('/admin/categories', payload)
+  },
+  updateCategory(id, payload) {
+    return api.patch(`/admin/categories/${id}`, payload)
+  },
+  deleteCategory(id) {
+    return api.delete(`/admin/categories/${id}`)
   },
   // ML
   mlStatus() {

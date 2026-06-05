@@ -61,12 +61,23 @@ const removeImage = () => {
 <template>
   <div class="chat-composer">
     <div class="composer-inner">
-      <div v-if="selectedImage" class="composer-preview">
+      <div
+        v-if="selectedImage"
+        v-motion
+        :initial="{ opacity: 0, y: 8, scale: 0.96 }"
+        :enter="{ opacity: 1, y: 0, scale: 1, transition: { duration: 180 } }"
+        class="composer-preview"
+      >
         <img :src="selectedImage" alt="preview" />
         <button @click="removeImage"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <div class="composer-box">
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 8 }"
+        :enter="{ opacity: 1, y: 0, transition: { duration: 220 } }"
+        class="composer-box"
+      >
         <label class="composer-btn upload" title="Unggah gambar">
           <i class="fa-solid fa-paperclip"></i>
           <input type="file" accept="image/*" hidden @change="handleUpload" />

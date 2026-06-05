@@ -1,6 +1,6 @@
-# Dokumentasi Backend dan AI RAG Epson AI Helpdesk
+# Dokumentasi Backend dan AI RAG Epson Helpdesk
 
-Dokumen ini menjelaskan bagian backend dan AI RAG pada project Epson AI Helpdesk. Fokusnya adalah memahami bagaimana API berjalan, bagaimana data disimpan, bagaimana chat diproses, dan bagaimana RAG mengambil knowledge base lalu menggunakannya untuk membantu Gemini menjawab pertanyaan user.
+Dokumen ini menjelaskan bagian backend dan AI RAG pada project Epson Helpdesk. Fokusnya adalah memahami bagaimana API berjalan, bagaimana data disimpan, bagaimana chat diproses, bagaimana RAG mengambil knowledge base lalu menggunakannya untuk membantu Gemini menjawab pertanyaan user.
 
 ## 1. Backend
 
@@ -72,6 +72,7 @@ Route publik hanya:
 
 ```txt
 GET  /api/health
+POST /api/auth/register
 POST /api/auth/login
 ```
 
@@ -155,6 +156,7 @@ Environment penting:
 | `RAG_MIN_SIMILARITY` | Threshold minimal similarity semantic retrieval. |
 | `AI_MIN_RESPONSE_MS` | Delay minimum response AI agar UX terasa konsisten. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Konfigurasi pengiriman email. |
+| `MAILPIT_WEB_URL` | URL inbox Mailpit yang dikembalikan oleh endpoint send-email, default `http://localhost:8025`. |
 | `CORS_ORIGIN` | Origin frontend yang diizinkan. |
 
 `config/prisma.js` membuat Prisma Client dengan adapter `@prisma/adapter-pg`. Saat bukan production, instance Prisma disimpan di `globalThis` agar tidak membuat koneksi berulang saat hot reload.
@@ -171,7 +173,7 @@ Model utama:
 
 | Model | Fungsi |
 |---|---|
-| `User` | Data karyawan/admin/helpdesk, termasuk `employeeId`, email, password hash, role, department. |
+| `User` | Data karyawan/admin/helpdesk, termasuk `employeeId`, email, password hash, role, `accountStatus`, department, dan catatan review akun. |
 | `IssueCategory` | Kategori masalah seperti print quality, scanner, network, hardware, firmware, part. |
 | `ChatSession` | Satu sesi percakapan user dengan AI. |
 | `ChatMessage` | Pesan dalam sesi chat, bisa dari `USER`, `AI`, atau `SYSTEM`. |
@@ -181,16 +183,23 @@ Model utama:
 | `SuggestedQuestion` | Pertanyaan rekomendasi terkait knowledge. |
 | `EscalationTicket` | Ticket hasil eskalasi dari chat session. |
 | `EmailLog` | Log pengiriman email summary report. |
+| `MlModel` | Artifact model lokal seperti classifier kategori/intent/prioritas. |
+| `TrainingExample` | Contoh training yang terkumpul dari feedback/conversation. |
+| `KnowledgeCandidate` | Candidate knowledge dari self-learning yang harus direview sebelum masuk knowledge base. |
 
 Enum penting:
 
 ```txt
 UserRole: USER, ADMIN, HELPDESK
+AccountStatus: PENDING, ACTIVE, REJECTED
 ChatSessionStatus: ACTIVE, RESOLVED, ESCALATED
 MessageSender: USER, AI, SYSTEM
 TicketStatus: OPEN, IN_PROGRESS, RESOLVED, CLOSED
 TicketPriority: LOW, MEDIUM, HIGH
 EmailStatus: SENT, FAILED
+FeedbackRating: UP, DOWN
+KnowledgeCandidateStatus: PENDING, NEEDS_EDIT, APPROVED, REJECTED
+RedactionStatus: PENDING, REDACTED
 ```
 
 Relasi data utama:
@@ -297,20 +306,25 @@ backend/src/middlewares/auth.middleware.js
 backend/src/middlewares/role.middleware.js
 ```
 
-Login memakai:
+Register operator memakai:
 
 ```txt
-POST /api/auth/login
+POST /api/auth/register
 ```
 
 Body:
 
 ```json
 {
-  "employeeId": "EMP001",
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
   "password": "Password123!"
 }
 ```
+
+Hasil register adalah role `USER` dengan `accountStatus: PENDING`. User dapat login untuk melihat status, tetapi dashboard/chat/ticket tetap terkunci sampai admin approve.
 
 Alur login:
 
@@ -341,6 +355,7 @@ Authorization: Bearer <token>
 
 Middleware `authorizeRoles` dipakai untuk membatasi fitur, misalnya:
 
+- Register publik membuat operator `USER` dengan `accountStatus: PENDING`; middleware `requireActiveAccount` menutup endpoint protected sampai admin approve.
 - Admin knowledge hanya `ADMIN`.
 - Ticket list/status hanya `ADMIN` dan `HELPDESK`.
 - Admin analytics hanya `ADMIN`.
@@ -352,15 +367,20 @@ Endpoint utama:
 | Area | Endpoint |
 |---|---|
 | Health | `GET /api/health` |
-| Auth | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
 | Dashboard | `GET /api/dashboard`, `GET /api/dashboard/popular-issues`, `GET /api/dashboard/recent-activity` |
-| Chat | `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions/:id` |
+| Chat | `POST /api/chat/message`, `GET /api/chat/history`, `GET /api/chat/sessions/:id`, rename/archive/delete/edit/regenerate/feedback endpoints |
 | Files | `POST /api/files/upload`, `GET /api/files/:id`, `DELETE /api/files/:id` |
+| Admin Categories | `GET /api/admin/categories`, `POST /api/admin/categories`, `PATCH /api/admin/categories/:id`, `DELETE /api/admin/categories/:id` |
 | Admin Knowledge | `GET /api/admin/knowledge`, `POST /api/admin/knowledge`, `PUT /api/admin/knowledge/:id`, `DELETE /api/admin/knowledge/:id` |
 | Admin Chat Logs | `GET /api/admin/chat-logs`, `GET /api/admin/chat-logs/:id` |
 | Admin Analytics | `GET /api/admin/analytics`, `GET /api/admin/top-issues` |
-| Tickets | `POST /api/tickets/escalate`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status` |
+| Admin Accounts | `GET /api/admin/accounts`, `PATCH /api/admin/accounts/:id/status` |
+| Tickets | `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status` |
 | Reports/Email | `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs` |
+| Users | `GET/PATCH /api/users/me/preferences` |
+| Learning | `GET /api/learning/candidates`, approve/reject candidate endpoints |
+| ML | `GET /api/admin/ml/status`, train/predict endpoints |
 
 Detail endpoint juga tersedia di:
 
@@ -411,9 +431,11 @@ GET /api/dashboard/recent-activity
 Fungsi:
 
 - Menampilkan dashboard user.
-- Menghitung popular issue dari gabungan jumlah `ChatSession` dan `EscalationTicket` per kategori.
+- Menghitung popular issue dari gabungan `ChatSession` non-temporary/non-deleted dan `EscalationTicket` per kategori dalam window 30 hari terakhir.
 - Menampilkan recent activity user berdasarkan chat session terakhir.
 - Menyediakan quick actions seperti start chat, view FAQ, dan report issue.
+
+Jika belum ada aktivitas chat/ticket, popular issues fallback ke seed `IssueCategory` dengan `count: 0`. Frontend dashboard melakukan refresh berkala agar daftar ini terasa realtime tanpa WebSocket.
 
 ### Modul Chat
 
@@ -450,6 +472,8 @@ User kirim message dan optional imageId
   -> simpan ChatMessage sender AI
   -> return session, userMessage, aiMessage, contexts, provider
 ```
+
+`aiMessage.knowledgeGrounded` ikut dikirim pada jawaban baru, edit, regenerate, dan temporary mode. Nilai `false` berarti tidak ada context knowledge base yang cocok; frontend menampilkan catatan agar operator dapat eskalasi bila masih ragu.
 
 Validasi akses:
 
@@ -509,6 +533,29 @@ Validasi akses:
 - Role `USER` hanya boleh mengakses file miliknya.
 - Role selain `USER` dapat mengakses file lebih luas sesuai kebutuhan operasional.
 
+### Modul Categories
+
+File:
+
+```txt
+backend/src/modules/categories/
+```
+
+Endpoint admin:
+
+```txt
+GET    /api/admin/categories
+POST   /api/admin/categories
+PATCH  /api/admin/categories/:id
+DELETE /api/admin/categories/:id
+```
+
+Fungsi:
+
+- Category menjadi master data untuk chat session, escalation ticket, knowledge document, dan learning candidate.
+- Admin dapat membuat category terlebih dahulu dari tab Categories, atau quick-create category saat membuat dokumen knowledge.
+- Delete category diblokir jika category masih dipakai data lain. Response error menyertakan usage count agar admin tahu data mana yang perlu dipindahkan/dihapus dulu.
+
 ### Modul Knowledge Base
 
 File:
@@ -529,6 +576,7 @@ DELETE /api/admin/knowledge/:id
 Fungsi:
 
 - Admin dapat melihat, membuat, mengubah, dan menghapus dokumen knowledge.
+- Dokumen knowledge dapat dihubungkan ke `IssueCategory`; category dapat dibuat dari fitur category master sebelum dokumen dibuat.
 - Setiap `KnowledgeDocument` otomatis dipecah menjadi `KnowledgeChunk`.
 - Setiap chunk dapat dibuatkan embedding Gemini dan disimpan ke pgvector.
 
@@ -581,10 +629,11 @@ PATCH /api/tickets/:id/status
 Fungsi:
 
 - Membuat escalation ticket dari chat session.
-- Menyimpan ringkasan percakapan sebagai `summary`.
+- Membuat ringkasan ticket multi-section berisi masalah utama, konteks pemohon/kategori/prioritas, respons AI terakhir, tindak lanjut helpdesk, lampiran, dan riwayat singkat.
 - Mengubah status ticket.
 - Mengubah status chat session menjadi `ESCALATED` saat ticket dibuat.
 - Mengubah status chat session menjadi `RESOLVED` jika ticket selesai atau ditutup.
+- `GET /api/tickets/:id` untuk `ADMIN`/`HELPDESK` mengembalikan `session.messages[]` read-only agar UI detail ticket dapat menampilkan history chat.
 
 Alur eskalasi:
 
@@ -593,7 +642,7 @@ User/Admin/Helpdesk kirim sessionId dan priority
   -> validasi session
   -> validasi ownership jika role USER
   -> ambil messages session
-  -> buildConversationSummary()
+  -> buildConversationSummary() multi-section
   -> buat EscalationTicket status OPEN
   -> update ChatSession status ESCALATED
   -> return ticket
@@ -626,6 +675,7 @@ Fungsi:
 - Mengirim summary via email.
 - Melampirkan gambar defect dari chat sebagai attachment email.
 - Menyimpan log email ke `EmailLog`.
+- Mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` agar frontend bisa membuka Mailpit, Email Logs, atau history chat terkait.
 
 Alur send email:
 
@@ -637,7 +687,7 @@ Request berisi sessionId atau ticketId dan recipientEmail
   -> ambil attachment dari ChatMessage.image
   -> nodemailer kirim email
   -> simpan EmailLog SENT atau FAILED
-  -> return status pengiriman
+  -> return status pengiriman, source, mailpitUrl, summary, attachments
 ```
 
 Untuk development, backend bisa memakai Mailpit dengan:
@@ -645,6 +695,7 @@ Untuk development, backend bisa memakai Mailpit dengan:
 ```env
 SMTP_HOST=localhost
 SMTP_PORT=1025
+MAILPIT_WEB_URL=http://localhost:8025
 ```
 
 ### Modul Admin
@@ -662,12 +713,15 @@ GET /api/admin/chat-logs
 GET /api/admin/chat-logs/:id
 GET /api/admin/analytics
 GET /api/admin/top-issues
+GET /api/admin/accounts
+PATCH /api/admin/accounts/:id/status
 ```
 
 Fungsi:
 
 - Melihat chat logs semua user.
 - Melihat detail satu chat session lengkap dengan messages dan escalation tickets.
+- Meninjau akun operator baru dan mengubah status approval menjadi `ACTIVE` atau `REJECTED`.
 - Menghitung analytics:
   - `deflectionRate`
   - `avgResponseTime`
@@ -1320,9 +1374,8 @@ backend/prisma/seed.js
 
 Seed membuat:
 
-- 3 user demo:
+- 2 akun demo:
   - `ADM001` sebagai `ADMIN`
-  - `EMP001` sebagai `USER`
   - `HD001` sebagai `HELPDESK`
 - 6 kategori issue:
   - Print Quality Issue
@@ -1335,7 +1388,8 @@ Seed membuat:
   - Print Quality Banding Troubleshooting
   - Scanner ADF Jam Recovery
   - Network Printer Discovery Checklist
-- Suggested questions terkait dokumen tersebut.
+
+Title dokumen knowledge memakai bahasa Inggris, sedangkan isi/deskripsi SOP memakai bahasa Indonesia agar demo RAG terasa natural untuk operator lokal. Seed tidak lagi membuat akun operator `USER` atau data operasional tambahan seperti chat, tickets, email logs, learning candidates, atau suggested questions. Data tersebut dibuat manual dari UI/API sesuai kebutuhan demo.
 
 Setelah seed, jalankan backfill embedding jika Gemini API key tersedia:
 
@@ -1390,6 +1444,6 @@ Beberapa area yang bisa dikembangkan:
 
 ### Kesimpulan
 
-Backend project Epson AI Helpdesk sudah disusun sebagai API modular dengan Express dan Prisma. Fitur operasional seperti auth, chat, upload file, knowledge base, ticket, report email, dashboard, dan admin analytics dipisahkan dalam module masing-masing.
+Backend project Epson Helpdesk sudah disusun sebagai API modular dengan Express dan Prisma. Fitur operasional seperti auth, chat, upload file, knowledge base, ticket, report email, dashboard, admin analytics, ML lokal, dan self-learning review dipisahkan dalam module masing-masing.
 
 AI RAG menjadi lapisan yang menghubungkan chat dengan knowledge base internal. Admin mengelola dokumen knowledge, backend memecah dokumen menjadi chunk, Gemini membuat embedding, pgvector menyimpan dan mencari chunk paling relevan, lalu Gemini menjawab dengan prompt yang sudah diberi context. Jika AI eksternal tidak tersedia, backend tetap berjalan memakai fallback keyword dan mock answer.

@@ -22,6 +22,8 @@ const assertEmail = (email) => {
 };
 
 const sessionWithMessageImages = {
+  user: { select: { id: true, employeeId: true, name: true, email: true, department: true } },
+  category: true,
   messages: {
     orderBy: { createdAt: "asc" },
     include: { image: true },
@@ -45,6 +47,7 @@ const getReportSource = async (user, payload) => {
     const ticket = await prisma.escalationTicket.findUnique({
       where: { id: payload.ticketId },
       include: {
+        category: true,
         session: {
           include: sessionWithMessageImages,
         },
@@ -57,7 +60,12 @@ const getReportSource = async (user, payload) => {
     }
 
     return {
-      summary: ticket.summary || buildConversationSummary(ticket.session.messages),
+      summary: buildConversationSummary(ticket.session.messages, {
+        requester: ticket.session.user,
+        category: ticket.category || ticket.session.category,
+        priority: ticket.priority,
+        status: ticket.status,
+      }),
       source: { ticketId: ticket.id, sessionId: ticket.sessionId },
       messages: ticket.session.messages,
     };
@@ -74,7 +82,10 @@ const getReportSource = async (user, payload) => {
   }
 
   return {
-    summary: buildConversationSummary(session.messages),
+    summary: buildConversationSummary(session.messages, {
+      requester: session.user,
+      category: session.category,
+    }),
     source: { sessionId: session.id },
     messages: session.messages,
   };
@@ -99,6 +110,7 @@ export const ReportsService = {
 
     const summaryResult = await getReportSource(user, payload);
     const subject = payload.subject || "Epson AI Helpdesk Summary Report";
+    const emailSummary = String(payload.summary || "").trim() || summaryResult.summary;
     const attachments = fileAttachmentsFromMessages(summaryResult.messages);
 
     try {
@@ -106,7 +118,7 @@ export const ReportsService = {
         from: env.SMTP_FROM,
         to: payload.recipientEmail,
         subject,
-        text: summaryResult.summary,
+        text: emailSummary,
         attachments,
       });
 
@@ -122,7 +134,9 @@ export const ReportsService = {
       return {
         sent: true,
         emailLog,
-        summary: summaryResult.summary,
+        summary: emailSummary,
+        source: summaryResult.source,
+        mailpitUrl: env.MAILPIT_WEB_URL || null,
         attachments: attachments.map((attachment) => ({
           filename: attachment.filename,
           contentType: attachment.contentType,
@@ -141,7 +155,9 @@ export const ReportsService = {
       return {
         sent: false,
         emailLog,
-        summary: summaryResult.summary,
+        summary: emailSummary,
+        source: summaryResult.source,
+        mailpitUrl: env.MAILPIT_WEB_URL || null,
         attachments: attachments.map((attachment) => ({
           filename: attachment.filename,
           contentType: attachment.contentType,

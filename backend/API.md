@@ -1,4 +1,4 @@
-# Epson AI Helpdesk API
+# Epson Helpdesk API
 
 ## Format Response
 
@@ -20,8 +20,9 @@ Auth header:
 Authorization: Bearer <token>
 ```
 
-Semua endpoint membutuhkan JWT kecuali `POST /api/auth/login` dan `GET /api/health`.
+Semua endpoint membutuhkan JWT kecuali `POST /api/auth/register`, `POST /api/auth/login`, dan `GET /api/health`.
 Login menggunakan `employeeId` dan `password`, bukan email.
+Operator hasil register berstatus `PENDING`; akun tersebut bisa login dan membuka `/api/auth/me`, tetapi endpoint protected lain akan mengembalikan `403` sampai admin approve.
 
 ## Endpoint List
 
@@ -35,9 +36,12 @@ Login menggunakan `employeeId` dan `password`, bukan email.
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
+| POST | `/api/auth/register` | Public | `{ "employeeId": "EMP002", "name": "Production Operator", "email": "operator.production@epson.local", "department": "Assembly", "password": "Password123!" }` |
 | POST | `/api/auth/login` | Public | `{ "employeeId": "ADM001", "password": "Password123!" }` |
 | POST | `/api/auth/logout` | JWT | - |
 | GET | `/api/auth/me` | JWT | - |
+
+Catatan: register publik selalu membuat role `USER` dengan `accountStatus: PENDING`. Akun `ADMIN` dan `HELPDESK` tidak dibuat dari register publik.
 
 ### Dashboard / IssueCategory / Activity
 
@@ -47,13 +51,22 @@ Login menggunakan `employeeId` dan `password`, bukan email.
 | GET | `/api/dashboard/popular-issues` | JWT | - |
 | GET | `/api/dashboard/recent-activity` | JWT | - |
 
+Catatan: `popular-issues` menghitung `ChatSession` non-temporary/non-deleted dan `EscalationTicket` per kategori dalam window 30 hari terakhir. Jika belum ada aktivitas, endpoint mengembalikan fallback seed `IssueCategory` dengan `count: 0`.
+
 ### ChatSession / ChatMessage
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
-| POST | `/api/chat/message` | JWT | `{ "message": "Print output has banding", "sessionId": null, "categoryId": null, "imageId": null }` |
+| POST | `/api/chat/message` | JWT | `{ "message": "Print output has banding", "sessionId": null, "categoryId": null, "imageId": null, "temporary": false }` |
 | GET | `/api/chat/history` | JWT | - |
 | GET | `/api/chat/sessions/:id` | JWT | - |
+| PATCH | `/api/chat/sessions/:id` | JWT | `{ "title": "Printer network issue" }` |
+| DELETE | `/api/chat/sessions/:id` | JWT | - |
+| POST | `/api/chat/sessions/:id/archive` | JWT | - |
+| POST | `/api/chat/sessions/:id/restore` | JWT | - |
+| PATCH | `/api/chat/messages/:id` | JWT | `{ "message": "Updated user message" }` |
+| POST | `/api/chat/messages/:id/regenerate` | JWT | - |
+| POST | `/api/chat/messages/:id/feedback` | JWT | `{ "rating": "UP", "comment": "optional" }` |
 
 ### UploadedFile
 
@@ -62,6 +75,17 @@ Login menggunakan `employeeId` dan `password`, bukan email.
 | POST | `/api/files/upload` | JWT | multipart field `file` |
 | GET | `/api/files/:id` | JWT | - |
 | DELETE | `/api/files/:id` | JWT | - |
+
+### Admin IssueCategory
+
+| Method | Route | Auth/Role | Body |
+|---|---|---|---|
+| GET | `/api/admin/categories` | ADMIN | - |
+| POST | `/api/admin/categories` | ADMIN | `{ "name": "Network Issue", "description": "IP, gateway, DNS, queue, and discovery issues." }` |
+| PATCH | `/api/admin/categories/:id` | ADMIN | `{ "name": "Updated Category", "description": "Updated description" }` |
+| DELETE | `/api/admin/categories/:id` | ADMIN | - |
+
+Catatan: delete category akan ditolak `409` jika masih dipakai chat session, knowledge document, escalation ticket, atau learning candidate.
 
 ### KnowledgeDocument / KnowledgeChunk / SuggestedQuestion
 
@@ -86,34 +110,52 @@ Login menggunakan `employeeId` dan `password`, bukan email.
 | GET | `/api/admin/analytics` | ADMIN | - |
 | GET | `/api/admin/top-issues` | ADMIN | - |
 
+### Admin Account Approval
+
+| Method | Route | Auth/Role | Body |
+|---|---|---|---|
+| GET | `/api/admin/accounts?status=PENDING` | ADMIN | - |
+| PATCH | `/api/admin/accounts/:id/status` | ADMIN | `{ "status": "ACTIVE", "reviewNote": "Verified by admin" }` |
+
+Catatan: status patch hanya menerima `ACTIVE` atau `REJECTED`, dan hanya akun role `USER` yang bisa direview.
+
 ### EscalationTicket
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
 | POST | `/api/tickets/escalate` | JWT USER/ADMIN/HELPDESK | `{ "sessionId": "uuid", "priority": "MEDIUM", "categoryId": null }` |
+| GET | `/api/tickets/my` | USER | - |
+| GET | `/api/tickets/my/:id` | USER | - |
 | GET | `/api/tickets` | ADMIN/HELPDESK | - |
 | GET | `/api/tickets/:id` | ADMIN/HELPDESK | - |
 | PATCH | `/api/tickets/:id/status` | ADMIN/HELPDESK | `{ "status": "IN_PROGRESS" }` |
+
+Catatan: `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]` read-only. Field `summary` di response memakai format multi-section terbaru.
 
 ### Reports / EmailLog
 
 | Method | Route | Auth/Role | Body |
 |---|---|---|---|
 | POST | `/api/reports/summary` | JWT | `{ "sessionId": "uuid" }` or `{ "ticketId": "uuid" }` |
-| POST | `/api/reports/send-email` | JWT | `{ "ticketId": "uuid", "recipientEmail": "lead@epson.local", "subject": "Summary" }` |
+| POST | `/api/reports/send-email` | JWT | `{ "ticketId": "uuid", "recipientEmail": "lead@epson.local", "subject": "Summary", "summary": "optional edited text" }` |
 | GET | `/api/email-logs` | ADMIN/HELPDESK | - |
+
+Catatan: `send-email` mengembalikan `source: { ticketId, sessionId }` dan `mailpitUrl` jika `MAILPIT_WEB_URL` tersedia. `GET /api/email-logs` mendukung query `status` dan `ticketId`.
 
 ## Request/Response Examples
 
-### Login
+### Register Operator
 
 ```http
-POST /api/auth/login
+POST /api/auth/register
 ```
 
 ```json
 {
-  "employeeId": "EMP001",
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
   "password": "Password123!"
 }
 ```
@@ -124,10 +166,11 @@ POST /api/auth/login
   "data": {
     "user": {
       "id": "uuid",
-      "employeeId": "EMP001",
-      "name": "Assembly Operator",
-      "email": "operator.assembly@epson.local",
+      "employeeId": "EMP002",
+      "name": "Production Operator",
+      "email": "operator.production@epson.local",
       "role": "USER",
+      "accountStatus": "PENDING",
       "department": "Assembly"
     },
     "token": "jwt-token"
@@ -155,10 +198,44 @@ Authorization: Bearer <token>
   "data": {
     "session": { "id": "uuid", "title": "Printer output has missing dots after maintenance", "status": "ACTIVE" },
     "userMessage": { "sender": "USER", "messageText": "Printer output has missing dots after maintenance" },
-    "aiMessage": { "sender": "AI", "confidenceScore": 0.82, "responseTimeMs": 210 },
+    "aiMessage": { "sender": "AI", "confidenceScore": 0.82, "knowledgeGrounded": false, "responseTimeMs": 210 },
     "contexts": [],
     "provider": "mock"
   }
+}
+```
+
+### Approve Operator Account
+
+```http
+GET /api/admin/accounts?status=PENDING
+Authorization: Bearer <admin-token>
+```
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "employeeId": "EMP002",
+      "name": "Production Operator",
+      "role": "USER",
+      "accountStatus": "PENDING"
+    }
+  ]
+}
+```
+
+```http
+PATCH /api/admin/accounts/uuid/status
+Authorization: Bearer <admin-token>
+```
+
+```json
+{
+  "status": "ACTIVE",
+  "reviewNote": "Verified by admin"
 }
 ```
 
@@ -185,6 +262,8 @@ Form field: `file`.
 ```
 
 ### Create Knowledge Document
+
+Category bisa dibuat dulu lewat `/api/admin/categories`, lalu `categoryId` dipakai saat membuat dokumen.
 
 ```json
 {
@@ -225,9 +304,49 @@ Response:
   "success": true,
   "data": {
     "id": "uuid",
+    "ticketCode": "TKT-001",
     "status": "OPEN",
     "priority": "HIGH",
-    "summary": "Summary of recent helpdesk conversation..."
+    "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ..."
+  }
+}
+```
+
+### Ticket Detail
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "ticketCode": "TKT-001",
+    "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ...",
+    "session": {
+      "id": "uuid",
+      "messages": [
+        { "id": "uuid", "sender": "USER", "messageText": "Printer tidak terdeteksi jaringan" },
+        { "id": "uuid", "sender": "AI", "messageText": "Cek koneksi fisik dan konfigurasi IP." }
+      ]
+    }
+  }
+}
+```
+
+### Send Email
+
+```json
+{
+  "success": true,
+  "data": {
+    "sent": true,
+    "emailLog": { "status": "SENT" },
+    "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ...",
+    "source": {
+      "ticketId": "uuid",
+      "sessionId": "uuid"
+    },
+    "mailpitUrl": "http://localhost:8025",
+    "attachments": []
   }
 }
 ```

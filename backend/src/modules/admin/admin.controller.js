@@ -17,3 +17,11 @@ export const getAnalytics = asyncHandler(async (req, res) => {
 export const getTopIssues = asyncHandler(async (req, res) => {
   return sendSuccess(res, await AdminService.getTopIssues());
 });
+
+export const getAccounts = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await AdminService.getAccounts(req.query));
+});
+
+export const updateAccountStatus = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await AdminService.updateAccountStatus(req.params.id, req.body));
+});

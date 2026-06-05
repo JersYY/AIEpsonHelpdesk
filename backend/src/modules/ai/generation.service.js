@@ -6,9 +6,8 @@ const contextTitle = (context) => context?.documentTitle || context?.document?.t
 const SAFETY_NOTE = "Jika tercium bau terbakar, ada asap, kabel rusak, percikan api, atau cairan masuk, segera cabut kabel daya, jangan membongkar perangkat, dan hubungi teknisi/servis resmi sebelum mencoba menyalakannya kembali.";
 
 const buildGreetingAnswer = () => [
-  "Halo! Saya Epson AI Helpdesk Assistant.",
-  "Ada kendala pada printer, scanner, jaringan, firmware, atau perangkat Epson lain yang bisa saya bantu cek hari ini?",
-  "Silakan jelaskan gejalanya, nanti saya pandu langkah-langkahnya.",
+  "Silakan jelaskan kendala pada printer, scanner, jaringan, firmware, atau perangkat Epson lain.",
+  "Sertakan gejala, lokasi perangkat, kode error jika ada, dan langkah yang sudah dicoba agar pengecekan lebih tepat.",
 ].join(" ");
 
 const buildOutOfScopeAnswer = () => [

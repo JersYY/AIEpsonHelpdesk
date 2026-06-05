@@ -20,6 +20,8 @@ const applyTheme = (theme) => {
   root.setAttribute('data-theme', resolved)
 }
 
+const hasLocalValue = (key) => Object.prototype.hasOwnProperty.call(readLocal(), key)
+
 export const usePreferencesStore = defineStore('preferences', {
   state: () => ({
     theme: readLocal().theme || 'system',
@@ -52,7 +54,9 @@ export const usePreferencesStore = defineStore('preferences', {
       this.theme = theme
       applyTheme(theme)
       this.persistLocal()
-      this.saveRemote({ theme })
+      if (localStorage.getItem('token')) {
+        this.saveRemote({ theme })
+      }
     },
 
     setDefaultChatMode(mode) {
@@ -68,17 +72,23 @@ export const usePreferencesStore = defineStore('preferences', {
     },
 
     // Load from backend when available; falls back silently to localStorage.
-    async loadRemote() {
+    async loadRemote(options = {}) {
+      const { preferLocalTheme = false } = options
+      const shouldKeepLocalTheme = preferLocalTheme && hasLocalValue('theme')
+
       try {
         const { data } = await api.get('/users/me/preferences')
         const prefs = data.data
         if (prefs) {
-          this.theme = prefs.theme || this.theme
+          this.theme = shouldKeepLocalTheme ? this.theme : (prefs.theme || this.theme)
           this.defaultChatMode = prefs.defaultChatMode || this.defaultChatMode
           this.compactSidebar = prefs.compactSidebar ?? this.compactSidebar
           applyTheme(this.theme)
           this.persistLocal()
           this.synced = true
+          if (shouldKeepLocalTheme && prefs.theme !== this.theme) {
+            await this.saveRemote({ theme: this.theme })
+          }
         }
       } catch {
         // endpoint unavailable -> keep localStorage values

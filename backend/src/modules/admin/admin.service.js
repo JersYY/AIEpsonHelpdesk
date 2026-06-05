@@ -51,6 +51,82 @@ const combineCategoryCounts = async (limit = 10) => {
 };
 
 export const AdminService = {
+  async getAccounts(query = {}) {
+    const status = String(query.status || "PENDING").toUpperCase();
+    const allowed = ["PENDING", "ACTIVE", "REJECTED", "ALL"];
+    if (!allowed.includes(status)) {
+      throw new ApiError(400, "Invalid account status", { allowed });
+    }
+
+    const where = {
+      role: "USER",
+      ...(status !== "ALL" ? { accountStatus: status } : {}),
+    };
+
+    return prisma.user.findMany({
+      where,
+      orderBy: [
+        { accountStatus: "asc" },
+        { createdAt: "desc" },
+      ],
+      select: {
+        id: true,
+        employeeId: true,
+        name: true,
+        email: true,
+        role: true,
+        accountStatus: true,
+        department: true,
+        approvedAt: true,
+        rejectedAt: true,
+        reviewNote: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  },
+
+  async updateAccountStatus(id, payload = {}) {
+    const status = String(payload.status || "").toUpperCase();
+    if (!["ACTIVE", "REJECTED"].includes(status)) {
+      throw new ApiError(400, "Status must be ACTIVE or REJECTED");
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw new ApiError(404, "User not found");
+    if (user.role !== "USER") {
+      throw new ApiError(400, "Only operator accounts can be reviewed from this endpoint");
+    }
+
+    const reviewNote = payload.reviewNote !== undefined
+      ? String(payload.reviewNote || "").trim() || null
+      : user.reviewNote;
+
+    return prisma.user.update({
+      where: { id },
+      data: {
+        accountStatus: status,
+        approvedAt: status === "ACTIVE" ? new Date() : null,
+        rejectedAt: status === "REJECTED" ? new Date() : null,
+        reviewNote,
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        name: true,
+        email: true,
+        role: true,
+        accountStatus: true,
+        department: true,
+        approvedAt: true,
+        rejectedAt: true,
+        reviewNote: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  },
+
   async getChatLogs(query = {}) {
     const page = Math.max(toInt(query.page, 1), 1);
     const limit = Math.min(Math.max(toInt(query.limit, 20), 1), 100);

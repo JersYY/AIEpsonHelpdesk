@@ -1,6 +1,6 @@
-# Epson AI Helpdesk Assistant
+# Epson Helpdesk
 
-Aplikasi helpdesk internal Epson berbasis AI/RAG. Terdiri dari **backend** (Express + Prisma + PostgreSQL/pgvector + Gemini) dan **frontend** (Vue 3 + Vite + Pinia). Mendukung auth JWT, chat troubleshooting RAG, upload gambar defect, escalation ticket, summary email via Mailpit/SMTP, knowledge base admin, analytics, ML lokal (kategori/intent/prioritas), dan self-learning melalui review candidate.
+Aplikasi helpdesk internal Epson berbasis AI/RAG. Terdiri dari **backend** (Express + Prisma + PostgreSQL/pgvector + Gemini) dan **frontend** (Vue 3 + Vite + Pinia + Vue Motion). Mendukung landing page sebelum login, auth JWT, chat troubleshooting RAG, upload gambar defect, escalation ticket, summary ticket/email multi-section, Mailpit/SMTP flow, knowledge base admin, analytics, ML lokal (kategori/intent/prioritas), dan self-learning melalui review candidate.
 
 ## URL Penting
 
@@ -61,8 +61,9 @@ SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
 SMTP_FROM=helpdesk@epson.local
+MAILPIT_WEB_URL=http://localhost:8025
 
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=http://localhost:5173
 ```
 
 Jangan commit `.env`. `GEMINI_API_KEY` boleh kosong; backend akan memakai fallback mock response. Jika key aktif tetapi quota habis, generation akan fallback ke mock, sedangkan RAG tetap berjalan dengan knowledge base yang tersedia.
@@ -131,6 +132,8 @@ Seed demo data:
 npm run prisma:seed
 ```
 
+Seed fresh mengisi akun `ADMIN` dan `HELPDESK`, 6 category master awal, dan 3 dokumen knowledge dengan title berbahasa Inggris serta isi/deskripsi SOP berbahasa Indonesia. Akun operator `USER`, chat, tickets, email logs, learning candidates, dan suggested questions dibuat manual dari UI/API saat demo.
+
 Isi embedding knowledge lama atau data seed:
 
 ```bash
@@ -185,7 +188,7 @@ npm install
 npm run dev
 ```
 
-Frontend berjalan di `http://localhost:5173`.
+Frontend berjalan di `http://localhost:5173`. Route `/` adalah landing page publik bergaya ChatGPT-like, login ada di `/login`, dan registrasi operator ada di `/register`. Operator baru masuk ke `/pending-approval` sampai admin menyetujui akun. Jika user aktif sudah login, `/`, `/login`, dan `/register` akan otomatis mengarah ke halaman sesuai role.
 
 Buat file `frontend/.env`:
 
@@ -193,32 +196,70 @@ Buat file `frontend/.env`:
 VITE_API_URL=http://localhost:4000/api
 ```
 
-API client (`frontend/src/services/api.js`) memakai `import.meta.env.VITE_API_URL` dengan fallback `http://localhost:4000/api`, dan menangani `401` dengan menghapus token lalu redirect ke `/login`.
+API client (`frontend/src/services/api.js`) memakai `import.meta.env.VITE_API_URL` dengan fallback `http://localhost:4000/api`, dan menangani `401` dengan menghapus token lalu redirect ke `/login`. UI memakai token light/dark global dan `@vueuse/motion` untuk animasi entrance, chat message, modal, list row, dan route transition.
 
 ## Akun Demo
 
-Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama.
+Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data profil user, tetapi bukan credential login utama. Seed hanya membuat akun admin dan helpdesk; operator dibuat lewat register.
 
 | Role | Email | Employee ID | Password |
 |---|---|---|---|
 | ADMIN | `admin@epson.local` | `ADM001` | `Password123!` |
-| USER | `operator.assembly@epson.local` | `EMP001` | `Password123!` |
 | HELPDESK | `helpdesk@epson.local` | `HD001` | `Password123!` |
 
-## Test Cepat API
-
-Login:
+Register operator. Akun baru otomatis berstatus `PENDING`; admin harus approve dari menu Admin > Accounts sebelum operator bisa memakai dashboard, chat, ticket, dan knowledge base.
 
 ```txt
-POST http://localhost:4000/api/auth/login
+POST http://localhost:4000/api/auth/register
 ```
 
 Body:
 
 ```json
 {
-  "employeeId": "EMP001",
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
   "password": "Password123!"
+}
+```
+
+## Test Cepat API
+
+Register/login user:
+
+```txt
+POST http://localhost:4000/api/auth/register
+```
+
+Body:
+
+```json
+{
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
+  "password": "Password123!"
+}
+```
+
+Jika `EMP002` sudah pernah didaftarkan di database lokal, gunakan `POST /api/auth/login` dengan `employeeId` dan password yang sama.
+
+Approve operator:
+
+```txt
+GET http://localhost:4000/api/admin/accounts?status=PENDING
+PATCH http://localhost:4000/api/admin/accounts/<user_id>/status
+Authorization: Bearer <admin_token>
+```
+
+Body approval:
+
+```json
+{
+  "status": "ACTIVE"
 }
 ```
 
@@ -283,12 +324,12 @@ Body:
 ```json
 {
   "ticketId": "<ticket_id>",
-  "recipientEmail": "helpdesk@epson.local",
-  "subject": "Epson AI Helpdesk - Ringkasan Eskalasi"
+  "recipientEmail": "lead@epson.local",
+  "subject": "Epson Helpdesk - Ringkasan Eskalasi"
 }
 ```
 
-Jika chat memiliki gambar, email akan menyertakan gambar tersebut sebagai attachment.
+Jika chat memiliki gambar, email akan menyertakan gambar tersebut sebagai attachment. Response `send-email` juga mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` agar UI helpdesk bisa membuka Mailpit, Email Logs, atau history chat terkait.
 
 ## Reset Database Lokal
 
@@ -323,19 +364,26 @@ frontend/README.md      Cara menjalankan UI
 
 ## Endpoint Penting
 
-Auth: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
+Auth: `POST /api/auth/register` (operator USER only), `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`
 Chat: `POST /api/chat/message` (mendukung `temporary: true`), `GET /api/chat/history`, `GET /api/chat/sessions/:id`, `PATCH /api/chat/sessions/:id` (rename), `DELETE /api/chat/sessions/:id`, `POST /api/chat/sessions/:id/archive|restore`, `PATCH /api/chat/messages/:id` (edit), `POST /api/chat/messages/:id/regenerate`, `POST /api/chat/messages/:id/feedback`
 Knowledge (read-only): `GET /api/knowledge`, `GET /api/knowledge/:id`, `GET /api/knowledge/suggested-questions`
-Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `PATCH /api/tickets/:id/status`
+Dashboard: `GET /api/dashboard`, `GET /api/dashboard/popular-issues`, `GET /api/dashboard/recent-activity`
+Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status`
+Reports/Email: `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs`
 Users: `GET/PATCH /api/users/me/preferences`
 Learning (ADMIN/HELPDESK): `GET /api/learning/candidates`, `POST /api/learning/candidates/:id/approve|reject`
-Admin: `GET /api/admin/analytics`, `GET /api/admin/chat-logs`, `/api/admin/knowledge` CRUD, `/api/admin/ml` train/status/predict
+Admin: `GET /api/admin/analytics`, `GET /api/admin/chat-logs`, `GET /api/admin/accounts`, `PATCH /api/admin/accounts/:id/status`, `/api/admin/categories` CRUD, `/api/admin/knowledge` CRUD, `/api/admin/ml` train/status/predict
 
-## Known Gaps (Frontend vs Backend)
+## UI dan Flow Saat Ini
 
-- Frontend UI ChatGPT-style (AppShell, sidebar, composer) belum sepenuhnya direbuild; service & endpoint backend sudah siap.
-- Theme light/dark/system saat ini dipersist via endpoint preferences + localStorage fallback.
-- Halaman admin learning-candidate review masih perlu UI; endpoint backend sudah tersedia.
+- Frontend sudah memiliki landing page internal Epson dengan navbar hamburger berisi light/dark switch, login, dan register operator; login konsisten dengan dashboard, tombol back ke landing page, AppShell ChatGPT-style, sidebar chat history, dark mode toggle, dan motion halus.
+- Register operator memakai approval flow: akun baru terkunci di `/pending-approval`, admin approve/reject dari `/admin/accounts`, lalu operator bisa cek status dan masuk tanpa register ulang.
+- Layout utama, landing, login/register, dashboard, chat, ticket, dan admin views memakai constraint responsive agar tetap usable di ponsel, tablet, dan desktop.
+- Chat menampilkan catatan ketika jawaban AI tidak memakai rujukan knowledge base, sehingga operator tahu kapan sebaiknya eskalasi ke helpdesk.
+- Admin Knowledge Base memiliki tab Documents dan Categories; dokumen knowledge bisa memilih category atau membuat category baru langsung dari modal dokumen.
+- Popular Issues dihitung dari chat non-temporary/non-deleted dan escalation ticket dalam window 30 hari, lalu dashboard melakukan refresh otomatis tiap 10 detik.
+- Detail ticket helpdesk menampilkan summary multi-section, history chat read-only, editor report email, tombol buka Mailpit, Email Logs, dan history chat.
+- Theme light/dark/system dipersist via endpoint preferences + localStorage fallback.
 - Gemini free tier dapat kena rate limit; chat otomatis fallback ke mock yang tetap aman dan terstruktur.
 
 ## Catatan ML & Self-learning

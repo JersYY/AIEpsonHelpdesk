@@ -1,6 +1,6 @@
 # AI Module RAG Gemini
 
-Module ini menjadi boundary AI/RAG untuk Epson AI Helpdesk. Chat/session/file tetap dikelola module lain, sedangkan folder ini menangani retrieval, embedding, prompt grounding, dan provider Gemini.
+Module ini menjadi boundary AI/RAG untuk Epson Helpdesk. Chat/session/file tetap dikelola module lain, sedangkan folder ini menangani retrieval, embedding, prompt grounding, dan provider Gemini.
 
 Backend engineer tetap menjaga:
 
@@ -10,6 +10,8 @@ Backend engineer tetap menjaga:
 - tickets
 - reports
 - admin APIs
+
+Catatan: summary ticket/email multi-section berada di `src/utils/summary.js`, bukan di module AI. Module AI menyediakan jawaban dan context RAG yang kemudian dipakai chat, ticket, dan report flow. ChatService menambahkan `aiMessage.knowledgeGrounded` berdasarkan context yang ditemukan agar frontend bisa memberi catatan saat jawaban tidak memakai knowledge base.
 
 File utama:
 
@@ -50,7 +52,9 @@ RAG_MIN_SIMILARITY=0.25
 
 ## Alur Self-Learning RAG
 
-Saat admin membuat atau mengubah `KnowledgeDocument`, backend membuat chunk dan mencoba mengisi embedding setiap chunk. Setelah itu pertanyaan user dibuat embedding query, dicocokkan dengan pgvector, lalu context paling relevan dipakai untuk prompt Gemini.
+Saat admin membuat atau mengubah `KnowledgeDocument`, dokumen dapat dikaitkan dengan `IssueCategory`, lalu backend membuat chunk dan mencoba mengisi embedding setiap chunk. Setelah itu pertanyaan user dibuat embedding query, dicocokkan dengan pgvector, lalu context paling relevan dipakai untuk prompt Gemini.
+
+Seed knowledge memakai title berbahasa Inggris dan isi SOP berbahasa Indonesia agar retrieval tetap cocok dengan istilah teknis sekaligus natural untuk operator lokal.
 
 Jika `GEMINI_API_KEY` kosong, request Gemini gagal, pgvector belum siap, atau belum ada embedding, service otomatis fallback ke keyword search dan mock answer.
 

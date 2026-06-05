@@ -1,6 +1,6 @@
 # Integrasi RAG dengan Gemini
 
-Dokumen ini menjelaskan cara mengaktifkan dan mengembangkan RAG Gemini untuk backend Epson AI Helpdesk.
+Dokumen ini menjelaskan cara mengaktifkan dan mengembangkan RAG Gemini untuk backend Epson Helpdesk.
 
 ## Ringkasan Arsitektur
 
@@ -40,6 +40,7 @@ Status saat ini:
 - Embedding `KnowledgeChunk.embedding` nullable, tetapi otomatis diisi saat knowledge create/update jika `GEMINI_API_KEY` tersedia.
 - Script backfill embedding tersedia di `prisma/backfill-embeddings.js`.
 - `src/modules/chat/rag.service.js` hanya compatibility wrapper ke `src/modules/ai/rag.service.js`.
+- Summary ticket/email tidak dibuat oleh module RAG, tetapi oleh `src/utils/summary.js`. Summary terbaru dipakai saat eskalasi ticket, report summary, dan email report.
 
 ## AI Engineer Handoff
 
@@ -119,20 +120,25 @@ npm run dev
 
 ### 4. Test via Postman
 
-Login user:
+Register operator:
 
 ```txt
-POST {{base_url}}/api/auth/login
+POST {{base_url}}/api/auth/register
 ```
 
 Body:
 
 ```json
 {
-  "employeeId": "EMP001",
+  "employeeId": "EMP002",
+  "name": "Production Operator",
+  "email": "operator.production@epson.local",
+  "department": "Assembly",
   "password": "Password123!"
 }
 ```
+
+Catatan: register membuat `USER` dengan `accountStatus: PENDING`. Untuk menguji endpoint protected seperti chat, admin perlu approve akun lewat `PATCH /api/admin/accounts/:id/status` dengan body `{ "status": "ACTIVE" }`.
 
 Send chat:
 
@@ -155,7 +161,10 @@ Jika Gemini aktif, response akan berisi:
 {
   "success": true,
   "data": {
-    "provider": "gemini"
+    "provider": "gemini",
+    "aiMessage": {
+      "knowledgeGrounded": true
+    }
   }
 }
 ```
@@ -166,10 +175,15 @@ Jika masih mock:
 {
   "success": true,
   "data": {
-    "provider": "mock"
+    "provider": "mock",
+    "aiMessage": {
+      "knowledgeGrounded": false
+    }
   }
 }
 ```
+
+`knowledgeGrounded: false` berarti jawaban saat itu tidak memakai context knowledge base yang cocok; frontend menampilkan catatan agar user dapat eskalasi bila masih ragu.
 
 Penyebab umum masih mock:
 
@@ -186,6 +200,7 @@ Target alur:
 
 ```txt
 KnowledgeDocument create/update
+  -> optional pilih IssueCategory dari /api/admin/categories
   -> split content jadi KnowledgeChunk
   -> generate embedding dengan Gemini embedding model
   -> simpan ke KnowledgeChunk.embedding
@@ -491,6 +506,14 @@ Expected:
 
 - pgvector mengembalikan chunk print quality walaupun keyword persis tidak sama.
 - `score` similarity muncul di hasil raw query.
+
+### Test 6: Ticket Summary Handoff
+
+Setelah chat dieskalasi:
+
+- `POST /api/tickets/escalate` membuat ticket dengan summary multi-section.
+- `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]`.
+- `POST /api/reports/summary` mengembalikan format summary yang sama.
 
 ## Roadmap Implementasi
 

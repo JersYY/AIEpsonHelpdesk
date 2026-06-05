@@ -12,6 +12,12 @@ enum UserRole {
   HELPDESK
 }
 
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
 enum ChatSessionStatus {
   ACTIVE
   RESOLVED
@@ -66,7 +72,11 @@ model User {
   email             String             @unique
   passwordHash      String
   role              UserRole           @default(USER)
+  accountStatus     AccountStatus      @default(PENDING)
   department        String?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  reviewNote        String?
   theme             String             @default("system")
   defaultChatMode   String             @default("normal")
   compactSidebar    Boolean            @default(false)
@@ -77,6 +87,7 @@ model User {
   escalationTickets EscalationTicket[]
 
   @@index([role])
+  @@index([accountStatus])
 }
 
 model IssueCategory {

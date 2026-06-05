@@ -31,7 +31,7 @@ const suggestions = [
   'Scanner ADF macet saat memindai dokumen.',
 ]
 
-const isEmpty = computed(() => chat.messages.length <= 1 && !chat.sessionId)
+const isEmpty = computed(() => chat.messages.length === 0 && !chat.sessionId)
 
 const showUnresolved = computed(
   () => chat.lastConfidence !== null && chat.lastConfidence < CONFIDENCE_THRESHOLD && !chat.temporary,
@@ -94,13 +94,18 @@ const submitEscalation = async () => {
 <template>
   <div class="chat-view">
     <div v-if="chat.temporary" class="temp-banner">
-      <i class="fa-solid fa-user-secret"></i>
-      Mode Temporary aktif - percakapan ini tidak disimpan ke riwayat dan tidak dipakai untuk self-learning.
+      <span class="temp-banner-icon">
+        <i class="fa-solid fa-user-secret"></i>
+      </span>
+      <span class="temp-banner-copy">
+        <strong>Temporary mode aktif</strong>
+        <span>Percakapan ini tidak tersimpan di riwayat dan tidak dipakai untuk self-learning.</span>
+      </span>
     </div>
 
     <div ref="threadEl" class="chat-thread">
       <div v-if="isEmpty" class="chat-empty">
-        <h2>Epson AI Helpdesk</h2>
+        <h2>Epson Helpdesk</h2>
         <p>Jelaskan kendala perangkat Epson Anda, dan saya bantu pandu langkah-langkahnya.</p>
         <div class="suggestion-grid">
           <button v-for="s in suggestions" :key="s" @click="send({ message: s })">{{ s }}</button>
@@ -142,7 +147,12 @@ const submitEscalation = async () => {
 
     <!-- Escalate modal -->
     <div v-if="showEscalate" class="modal-backdrop" @click.self="showEscalate = false">
-      <div class="modal-card">
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 14, scale: 0.97 }"
+        :enter="{ opacity: 1, y: 0, scale: 1, transition: { duration: 220 } }"
+        class="modal-card"
+      >
         <h3 class="page-title">Eskalasi ke Helpdesk</h3>
         <p class="muted" style="margin-bottom: 16px;">Tiket akan dibuat dengan ringkasan percakapan ini.</p>
         <label class="muted" style="font-size: 12px;">Prioritas</label>
@@ -166,7 +176,13 @@ const submitEscalation = async () => {
 
     <!-- Success modal -->
     <div v-if="createdTicket" class="modal-backdrop" @click.self="createdTicket = null">
-      <div class="modal-card" style="text-align: center;">
+      <div
+        v-motion
+        :initial="{ opacity: 0, y: 14, scale: 0.97 }"
+        :enter="{ opacity: 1, y: 0, scale: 1, transition: { duration: 220 } }"
+        class="modal-card"
+        style="text-align: center;"
+      >
         <div style="font-size: 40px; color: var(--color-success); margin-bottom: 12px;">
           <i class="fa-solid fa-circle-check"></i>
         </div>
