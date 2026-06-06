@@ -329,7 +329,7 @@ Body:
 }
 ```
 
-Jika chat memiliki gambar, email akan menyertakan gambar tersebut sebagai attachment. Response `send-email` juga mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` agar UI helpdesk bisa membuka Mailpit, Email Logs, atau history chat terkait.
+Jika chat memiliki gambar, email akan menyertakan gambar tersebut sebagai attachment. Response `send-email` juga mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` agar UI helpdesk bisa membuka Mailpit, Email Logs, atau history chat terkait. Email/Mailpit dipakai sebagai notifikasi dan arsip development; jawaban resmi ke operator tetap dilakukan dari thread balasan ticket di web.
 
 ## Reset Database Lokal
 
@@ -368,7 +368,7 @@ Auth: `POST /api/auth/register` (operator USER only), `POST /api/auth/login`, `G
 Chat: `POST /api/chat/message` (mendukung `temporary: true`), `GET /api/chat/history`, `GET /api/chat/sessions/:id`, `PATCH /api/chat/sessions/:id` (rename), `DELETE /api/chat/sessions/:id`, `POST /api/chat/sessions/:id/archive|restore`, `PATCH /api/chat/messages/:id` (edit), `POST /api/chat/messages/:id/regenerate`, `POST /api/chat/messages/:id/feedback`
 Knowledge (read-only): `GET /api/knowledge`, `GET /api/knowledge/:id`, `GET /api/knowledge/suggested-questions`
 Dashboard: `GET /api/dashboard`, `GET /api/dashboard/popular-issues`, `GET /api/dashboard/recent-activity`
-Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status`
+Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `POST /api/tickets/my/:id/comments`, `PATCH /api/tickets/my/:id/resolution`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`, `PATCH /api/tickets/:id/status`
 Reports/Email: `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs`
 Users: `GET/PATCH /api/users/me/preferences`
 Learning (ADMIN/HELPDESK): `GET /api/learning/candidates`, `POST /api/learning/candidates/:id/approve|reject`
@@ -382,7 +382,8 @@ Admin: `GET /api/admin/analytics`, `GET /api/admin/chat-logs`, `GET /api/admin/a
 - Chat menampilkan catatan ketika jawaban AI tidak memakai rujukan knowledge base, sehingga operator tahu kapan sebaiknya eskalasi ke helpdesk.
 - Admin Knowledge Base memiliki tab Documents dan Categories; dokumen knowledge bisa memilih category atau membuat category baru langsung dari modal dokumen.
 - Popular Issues dihitung dari chat non-temporary/non-deleted dan escalation ticket dalam window 30 hari, lalu dashboard melakukan refresh otomatis tiap 10 detik.
-- Detail ticket helpdesk menampilkan summary multi-section, history chat read-only, editor report email, tombol buka Mailpit, Email Logs, dan history chat.
+- Ticket memiliki thread balasan web: helpdesk/admin mengirim solusi dari detail ticket, operator dapat membalas, lalu mengonfirmasi solusi berhasil atau masih bermasalah.
+- Detail ticket helpdesk menampilkan summary multi-section, history chat read-only, thread balasan, editor report email, tombol buka Mailpit, Email Logs, dan history chat.
 - Theme light/dark/system dipersist via endpoint preferences + localStorage fallback.
 - Gemini free tier dapat kena rate limit; chat otomatis fallback ke mock yang tetap aman dan terstruktur.
 

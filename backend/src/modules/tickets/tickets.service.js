@@ -10,6 +10,12 @@ const ticketInclude = {
   session: { select: { id: true, title: true, status: true } },
   category: true,
   emailLogs: { orderBy: { sentAt: "desc" } },
+  comments: {
+    orderBy: { createdAt: "asc" },
+    include: {
+      author: { select: { id: true, employeeId: true, name: true, role: true, department: true } },
+    },
+  },
 };
 
 const formatTicketCode = (ticketNumber) => {
@@ -25,6 +31,41 @@ const withTicketCode = (ticket) => {
     ...ticket,
     ticketCode: formatTicketCode(ticket.ticketNumber),
   };
+};
+
+const commentInclude = {
+  author: { select: { id: true, employeeId: true, name: true, role: true, department: true } },
+};
+
+const assertTicketAccess = (ticket, user) => {
+  if (!ticket) throw new ApiError(404, "Ticket not found");
+  if (user.role === "USER" && ticket.userId !== user.id) {
+    throw new ApiError(404, "Ticket not found");
+  }
+};
+
+const cleanMessage = (payload) => {
+  const message = `${payload?.message || ""}`.trim();
+  if (!message) throw new ApiError(400, "Message is required");
+  if (message.length > 4000) throw new ApiError(400, "Message is too long");
+  return message;
+};
+
+const syncResolvedSession = async (tx, ticket) => {
+  await tx.chatSession.update({
+    where: { id: ticket.sessionId },
+    data: { status: "RESOLVED" },
+  });
+};
+
+const proposeLearningCandidate = async (sessionId) => {
+  try {
+    await LearningService.candidateFromSession(sessionId, { confidenceScore: 0.8 });
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[ml] candidate from resolved ticket skipped: ${error.message}`);
+    }
+  }
 };
 
 export const TicketsService = {
@@ -210,27 +251,99 @@ export const TicketsService = {
     const ticket = await prisma.escalationTicket.findUnique({ where: { id } });
     if (!ticket) throw new ApiError(404, "Ticket not found");
 
-    const updated = await prisma.escalationTicket.update({
-      where: { id },
-      data: { status: payload.status },
-      include: ticketInclude,
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.escalationTicket.update({
+        where: { id },
+        data: { status: payload.status },
+        include: ticketInclude,
+      });
+
+      if (payload.status === "RESOLVED" || payload.status === "CLOSED") {
+        await syncResolvedSession(tx, result);
+      }
+
+      return result;
     });
 
     if (payload.status === "RESOLVED" || payload.status === "CLOSED") {
-      await prisma.chatSession.update({
-        where: { id: updated.sessionId },
-        data: { status: "RESOLVED" },
-      });
-
       // Continuous learning (SAFE): resolved case proposes a knowledge CANDIDATE
       // for admin/helpdesk review. It does NOT auto-modify the knowledge base.
-      try {
-        await LearningService.candidateFromSession(updated.sessionId, { confidenceScore: 0.8 });
-      } catch (error) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn(`[ml] candidate from resolved ticket skipped: ${error.message}`);
-        }
+      await proposeLearningCandidate(updated.sessionId);
+    }
+
+    return withTicketCode(updated);
+  },
+
+  async addComment(user, id, payload) {
+    const message = cleanMessage(payload);
+    const ticket = await prisma.escalationTicket.findUnique({ where: { id } });
+    assertTicketAccess(ticket, user);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.ticketComment.create({
+        data: {
+          ticketId: id,
+          authorId: user.id,
+          message,
+        },
+        include: commentInclude,
+      });
+
+      if ((user.role === "ADMIN" || user.role === "HELPDESK") && ticket.status === "OPEN") {
+        await tx.escalationTicket.update({
+          where: { id },
+          data: { status: "IN_PROGRESS" },
+        });
       }
+
+      return tx.escalationTicket.findUnique({
+        where: { id },
+        include: ticketInclude,
+      });
+    });
+
+    return withTicketCode(updated);
+  },
+
+  async updateMyResolution(user, id, payload) {
+    const resolved = payload?.resolved;
+    if (typeof resolved !== "boolean") {
+      throw new ApiError(400, "resolved must be true or false");
+    }
+
+    const ticket = await prisma.escalationTicket.findUnique({ where: { id } });
+    assertTicketAccess(ticket, user);
+
+    const fallbackMessage = resolved
+      ? "Operator mengonfirmasi solusi berhasil dan ticket dapat ditutup."
+      : "Operator mengonfirmasi kendala masih terjadi dan perlu tindak lanjut helpdesk.";
+    const rawMessage = `${payload?.message || ""}`.trim();
+    if (rawMessage.length > 4000) throw new ApiError(400, "Message is too long");
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.ticketComment.create({
+        data: {
+          ticketId: id,
+          authorId: user.id,
+          message: rawMessage || fallbackMessage,
+        },
+      });
+
+      const result = await tx.escalationTicket.update({
+        where: { id },
+        data: { status: resolved ? "CLOSED" : "IN_PROGRESS" },
+        include: ticketInclude,
+      });
+
+      if (resolved) {
+        await syncResolvedSession(tx, result);
+      }
+
+      return result;
+    });
+
+    if (resolved) {
+      await proposeLearningCandidate(updated.sessionId);
     }
 
     return withTicketCode(updated);

@@ -28,8 +28,8 @@ const logout = async () => {
       <div class="locked-icon">
         <i class="fa-solid fa-lock"></i>
       </div>
-      <p class="landing-kicker">Akses internal Epson</p>
-      <h1>Akun menunggu persetujuan admin</h1>
+      <p class="landing-kicker">PERHATIAN</p>
+      <h1>Akun Menunggu Persetujuan Admin</h1>
       <p>
         Registrasi Anda sudah diterima. Untuk menjaga akses helpdesk tetap aman,
         akun operator perlu diverifikasi oleh admin sebelum dapat memakai dashboard,

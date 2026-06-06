@@ -182,6 +182,7 @@ Model utama:
 | `KnowledgeChunk` | Potongan isi dokumen knowledge yang dipakai retrieval RAG. |
 | `SuggestedQuestion` | Pertanyaan rekomendasi terkait knowledge. |
 | `EscalationTicket` | Ticket hasil eskalasi dari chat session. |
+| `TicketComment` | Thread balasan ticket antara operator, helpdesk, dan admin. |
 | `EmailLog` | Log pengiriman email summary report. |
 | `MlModel` | Artifact model lokal seperti classifier kategori/intent/prioritas. |
 | `TrainingExample` | Contoh training yang terkumpul dari feedback/conversation. |
@@ -376,7 +377,7 @@ Endpoint utama:
 | Admin Chat Logs | `GET /api/admin/chat-logs`, `GET /api/admin/chat-logs/:id` |
 | Admin Analytics | `GET /api/admin/analytics`, `GET /api/admin/top-issues` |
 | Admin Accounts | `GET /api/admin/accounts`, `PATCH /api/admin/accounts/:id/status` |
-| Tickets | `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status` |
+| Tickets | `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `POST /api/tickets/my/:id/comments`, `PATCH /api/tickets/my/:id/resolution`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`, `PATCH /api/tickets/:id/status` |
 | Reports/Email | `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs` |
 | Users | `GET/PATCH /api/users/me/preferences` |
 | Learning | `GET /api/learning/candidates`, approve/reject candidate endpoints |
@@ -621,8 +622,13 @@ Endpoint:
 
 ```txt
 POST  /api/tickets/escalate
+GET   /api/tickets/my
+GET   /api/tickets/my/:id
+POST  /api/tickets/my/:id/comments
+PATCH /api/tickets/my/:id/resolution
 GET   /api/tickets
 GET   /api/tickets/:id
+POST  /api/tickets/:id/comments
 PATCH /api/tickets/:id/status
 ```
 
@@ -630,6 +636,7 @@ Fungsi:
 
 - Membuat escalation ticket dari chat session.
 - Membuat ringkasan ticket multi-section berisi masalah utama, konteks pemohon/kategori/prioritas, respons AI terakhir, tindak lanjut helpdesk, lampiran, dan riwayat singkat.
+- Menyimpan thread balasan ticket lewat `TicketComment` agar solusi helpdesk/admin dan respons operator tercatat di web.
 - Mengubah status ticket.
 - Mengubah status chat session menjadi `ESCALATED` saat ticket dibuat.
 - Mengubah status chat session menjadi `RESOLVED` jika ticket selesai atau ditutup.
@@ -651,7 +658,8 @@ User/Admin/Helpdesk kirim sessionId dan priority
 Role:
 
 - `USER`, `ADMIN`, `HELPDESK` boleh membuat eskalasi.
-- Hanya `ADMIN` dan `HELPDESK` boleh melihat list ticket dan mengubah status.
+- `USER` hanya boleh melihat/membalas ticket miliknya dan mengonfirmasi `resolved: true|false`.
+- Hanya `ADMIN` dan `HELPDESK` boleh melihat list ticket, membalas semua ticket, dan mengubah status.
 
 ### Modul Reports dan Email
 
@@ -676,6 +684,7 @@ Fungsi:
 - Melampirkan gambar defect dari chat sebagai attachment email.
 - Menyimpan log email ke `EmailLog`.
 - Mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` agar frontend bisa membuka Mailpit, Email Logs, atau history chat terkait.
+- Email/Mailpit dipakai sebagai notifikasi dan arsip; solusi ke operator tetap dikirim lewat thread balasan ticket.
 
 Alur send email:
 

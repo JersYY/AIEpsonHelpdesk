@@ -85,17 +85,18 @@ model User {
   chatSessions      ChatSession[]
   uploadedFiles     UploadedFile[]
   escalationTickets EscalationTicket[]
+  ticketComments    TicketComment[]
 
   @@index([role])
   @@index([accountStatus])
 }
 
 model IssueCategory {
-  id                 String               @id @default(uuid())
-  name               String               @unique
+  id                 String              @id @default(uuid())
+  name               String              @unique
   description        String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   chatSessions       ChatSession[]
   knowledgeDocuments KnowledgeDocument[]
   escalationTickets  EscalationTicket[]
@@ -125,21 +126,21 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id              String         @id @default(uuid())
-  sessionId       String
-  sender          MessageSender
-  messageText     String         @db.Text
-  imageId         String?
-  confidenceScore Float?
-  responseTimeMs  Int?
-  feedback        FeedbackRating?
-  feedbackComment String?        @db.Text
+  id                  String          @id @default(uuid())
+  sessionId           String
+  sender              MessageSender
+  messageText         String          @db.Text
+  imageId             String?
+  confidenceScore     Float?
+  responseTimeMs      Int?
+  feedback            FeedbackRating?
+  feedbackComment     String?         @db.Text
   predictedCategoryId String?
   predictedConfidence Float?
-  editedAt        DateTime?
-  createdAt       DateTime       @default(now())
-  session         ChatSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  image           UploadedFile?  @relation(fields: [imageId], references: [id], onDelete: SetNull)
+  editedAt            DateTime?
+  createdAt           DateTime        @default(now())
+  session             ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  image               UploadedFile?   @relation(fields: [imageId], references: [id], onDelete: SetNull)
 
   @@index([sessionId, createdAt])
   @@index([sender])
@@ -178,13 +179,13 @@ model KnowledgeDocument {
 }
 
 model KnowledgeChunk {
-  id         String                 @id @default(uuid())
+  id         String                      @id @default(uuid())
   documentId String
-  chunkText  String                 @db.Text
+  chunkText  String                      @db.Text
   embedding  Unsupported("vector(768)")?
   metadata   Json?
-  createdAt  DateTime               @default(now())
-  document   KnowledgeDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                    @default(now())
+  document   KnowledgeDocument           @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
 }
@@ -202,25 +203,39 @@ model SuggestedQuestion {
 }
 
 model EscalationTicket {
-  id        String          @id @default(uuid())
-  ticketNumber Int         @unique @default(autoincrement())
-  sessionId String
-  userId    String
-  categoryId String?
-  summary   String          @db.Text
-  status    TicketStatus    @default(OPEN)
-  priority  TicketPriority  @default(MEDIUM)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  session   ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category  IssueCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  emailLogs EmailLog[]
+  id           String          @id @default(uuid())
+  ticketNumber Int             @unique @default(autoincrement())
+  sessionId    String
+  userId       String
+  categoryId   String?
+  summary      String          @db.Text
+  status       TicketStatus    @default(OPEN)
+  priority     TicketPriority  @default(MEDIUM)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  session      ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     IssueCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  emailLogs    EmailLog[]
+  comments     TicketComment[]
 
   @@index([sessionId])
   @@index([userId])
   @@index([categoryId])
   @@index([status])
+}
+
+model TicketComment {
+  id        String           @id @default(uuid())
+  ticketId  String
+  authorId  String
+  message   String           @db.Text
+  createdAt DateTime         @default(now())
+  ticket    EscalationTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@index([authorId])
 }
 
 model EmailLog {
@@ -253,12 +268,12 @@ model MlModel {
 // Training examples accumulated from real conversations and tickets.
 // Used to retrain the category/intent classifiers ("learning from conversations").
 model TrainingExample {
-  id         String   @id @default(uuid())
-  text       String   @db.Text
-  label      String
-  task       String
-  source     String   @default("conversation")
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  text      String   @db.Text
+  label     String
+  task      String
+  source    String   @default("conversation")
+  createdAt DateTime @default(now())
 
   @@index([task])
   @@index([label])
@@ -268,19 +283,19 @@ model TrainingExample {
 // non-temporary conversation. Must be reviewed by admin/helpdesk before it can
 // become a real KnowledgeDocument used by RAG (PRD section 6.7.6 / 8.8).
 model KnowledgeCandidate {
-  id               String                   @id @default(uuid())
-  sourceSessionId  String?
-  createdByUserId  String?
-  title            String
-  content          String                   @db.Text
-  categoryId       String?
-  status           KnowledgeCandidateStatus @default(PENDING)
-  confidenceScore  Float?
-  redactionStatus  RedactionStatus          @default(PENDING)
-  reviewNote       String?                  @db.Text
+  id                 String                   @id @default(uuid())
+  sourceSessionId    String?
+  createdByUserId    String?
+  title              String
+  content            String                   @db.Text
+  categoryId         String?
+  status             KnowledgeCandidateStatus @default(PENDING)
+  confidenceScore    Float?
+  redactionStatus    RedactionStatus          @default(PENDING)
+  reviewNote         String?                  @db.Text
   approvedDocumentId String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 
   @@index([status])
   @@index([sourceSessionId])

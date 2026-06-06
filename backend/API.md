@@ -126,11 +126,14 @@ Catatan: status patch hanya menerima `ACTIVE` atau `REJECTED`, dan hanya akun ro
 | POST | `/api/tickets/escalate` | JWT USER/ADMIN/HELPDESK | `{ "sessionId": "uuid", "priority": "MEDIUM", "categoryId": null }` |
 | GET | `/api/tickets/my` | USER | - |
 | GET | `/api/tickets/my/:id` | USER | - |
+| POST | `/api/tickets/my/:id/comments` | USER | `{ "message": "Solusi sudah dicoba, hasil nozzle check terlampir." }` |
+| PATCH | `/api/tickets/my/:id/resolution` | USER | `{ "resolved": true, "message": "Solusi berhasil." }` |
 | GET | `/api/tickets` | ADMIN/HELPDESK | - |
 | GET | `/api/tickets/:id` | ADMIN/HELPDESK | - |
+| POST | `/api/tickets/:id/comments` | ADMIN/HELPDESK | `{ "message": "Lakukan nozzle check lalu kirim hasilnya." }` |
 | PATCH | `/api/tickets/:id/status` | ADMIN/HELPDESK | `{ "status": "IN_PROGRESS" }` |
 
-Catatan: `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]` read-only. Field `summary` di response memakai format multi-section terbaru.
+Catatan: `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]` read-only. Field `summary` di response memakai format multi-section terbaru. Ticket juga membawa `comments[]` sebagai thread balasan web. Mailpit/email dipakai untuk notifikasi atau arsip, sedangkan jawaban resmi helpdesk ke operator dilakukan melalui endpoint komentar ticket.
 
 ### Reports / EmailLog
 
@@ -321,6 +324,17 @@ Response:
     "id": "uuid",
     "ticketCode": "TKT-001",
     "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ...",
+    "comments": [
+      {
+        "id": "uuid",
+        "message": "Lakukan nozzle check dan kirim hasilnya dari halaman ticket.",
+        "createdAt": "2026-06-06T03:00:00.000Z",
+        "author": {
+          "name": "Helpdesk Agent",
+          "role": "HELPDESK"
+        }
+      }
+    ],
     "session": {
       "id": "uuid",
       "messages": [
@@ -331,6 +345,50 @@ Response:
   }
 }
 ```
+
+### Reply Ticket
+
+Helpdesk/admin mengirim jawaban ke operator:
+
+```http
+POST /api/tickets/uuid/comments
+Authorization: Bearer <helpdesk-token>
+```
+
+```json
+{
+  "message": "Lakukan nozzle check, cek alignment, lalu balas ticket ini dengan hasil pengecekan."
+}
+```
+
+Operator membalas ticket miliknya:
+
+```http
+POST /api/tickets/my/uuid/comments
+Authorization: Bearer <operator-token>
+```
+
+```json
+{
+  "message": "Nozzle check sudah dilakukan, garis masih muncul pada warna cyan."
+}
+```
+
+Operator menutup ticket jika solusi berhasil:
+
+```http
+PATCH /api/tickets/my/uuid/resolution
+Authorization: Bearer <operator-token>
+```
+
+```json
+{
+  "resolved": true,
+  "message": "Solusi berhasil setelah alignment ulang."
+}
+```
+
+Jika kendala masih terjadi, kirim `resolved: false`; status ticket kembali menjadi `IN_PROGRESS`.
 
 ### Send Email
 

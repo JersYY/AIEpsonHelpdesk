@@ -574,7 +574,7 @@ Expected if SMTP is not running:
 }
 ```
 
-Setelah response `sent: true`, email development muncul di Mailpit. UI helpdesk juga memakai `mailpitUrl`, `source.ticketId`, dan `source.sessionId` untuk membuka Mailpit, Email Logs, atau history chat terkait.
+Setelah response `sent: true`, email development muncul di Mailpit. UI helpdesk juga memakai `mailpitUrl`, `source.ticketId`, dan `source.sessionId` untuk membuka Mailpit, Email Logs, atau history chat terkait. Mailpit/email dipakai sebagai notifikasi dan arsip; jawaban resmi ke operator dilakukan lewat thread balasan ticket di web.
 
 ## 17. Login Admin
 
@@ -840,11 +840,36 @@ Expected data contains:
 {
   "ticketCode": "TKT-001",
   "summary": "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- ...",
+  "comments": [],
   "session": {
     "messages": []
   }
 }
 ```
+
+## 28A. Helpdesk Reply to Operator
+
+Request:
+
+```txt
+POST {{base_url}}/api/tickets/{{ticket_id}}/comments
+```
+
+Auth:
+
+```txt
+Bearer Token: {{helpdesk_token}}
+```
+
+Body:
+
+```json
+{
+  "message": "Lakukan nozzle check, cek alignment, lalu balas ticket ini dengan hasil pengecekan."
+}
+```
+
+Expected: response ticket berisi `comments[]` dan status otomatis menjadi `IN_PROGRESS` jika sebelumnya masih `OPEN`.
 
 ## 29. Helpdesk Update Ticket to In Progress
 
@@ -889,6 +914,31 @@ Body:
   "status": "RESOLVED"
 }
 ```
+
+## 30A. Operator Confirm Resolution
+
+Jika solusi berhasil:
+
+```txt
+PATCH {{base_url}}/api/tickets/my/{{ticket_id}}/resolution
+```
+
+Auth:
+
+```txt
+Bearer Token: {{user_token}}
+```
+
+Body:
+
+```json
+{
+  "resolved": true,
+  "message": "Solusi berhasil setelah alignment ulang."
+}
+```
+
+Jika kendala masih terjadi, kirim `resolved: false`; status ticket kembali menjadi `IN_PROGRESS`.
 
 ## 31. Email Logs
 

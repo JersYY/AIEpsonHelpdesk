@@ -11,7 +11,7 @@ Backend API modular untuk sistem helpdesk internal Epson berbasis AI/RAG. API in
 - Upload gambar defect via multer: JPEG, PNG, WEBP, maksimal 5MB.
 - Admin CRUD knowledge base dengan auto chunking dan auto embedding untuk RAG.
 - Admin chat logs dan analytics.
-- Escalation ticket dan status workflow.
+- Escalation ticket, status workflow, dan thread balasan antara helpdesk/admin dengan operator.
 - Summary ticket/report multi-section yang menampilkan masalah utama, konteks, respons AI terakhir, tindak lanjut helpdesk, lampiran, dan riwayat singkat.
 - Email report via nodemailer/Mailpit dengan response `source` dan `mailpitUrl` untuk flow web helpdesk.
 - Global response format, error handler, not found middleware, helmet, cors, morgan.
@@ -230,7 +230,7 @@ Login memakai `employeeId` dan `password`. Email tetap disimpan sebagai data pro
 - Admin Chat Logs: `GET /api/admin/chat-logs`, `GET /api/admin/chat-logs/:id`
 - Admin Analytics: `GET /api/admin/analytics`, `GET /api/admin/top-issues`
 - Admin Accounts: `GET /api/admin/accounts`, `PATCH /api/admin/accounts/:id/status`
-- Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `GET /api/tickets`, `GET /api/tickets/:id`, `PATCH /api/tickets/:id/status`
+- Tickets: `POST /api/tickets/escalate`, `GET /api/tickets/my`, `GET /api/tickets/my/:id`, `POST /api/tickets/my/:id/comments`, `PATCH /api/tickets/my/:id/resolution`, `GET /api/tickets`, `GET /api/tickets/:id`, `POST /api/tickets/:id/comments`, `PATCH /api/tickets/:id/status`
 - Reports/Email: `POST /api/reports/summary`, `POST /api/reports/send-email`, `GET /api/email-logs`
 - Users: `GET/PATCH /api/users/me/preferences`
 - Learning: `GET /api/learning/candidates`, `POST /api/learning/candidates/:id/approve|reject`
@@ -263,6 +263,8 @@ Body patch:
 ### Catatan Ticket Detail dan Summary
 
 `GET /api/tickets/:id` untuk `ADMIN`/`HELPDESK` mengembalikan `session.messages[]` read-only agar UI bisa menampilkan history chat pada detail ticket. Field `summary` di response memakai format multi-section terbaru, termasuk untuk ticket lama yang masih menyimpan summary format lama di database.
+
+Ticket memiliki `comments[]` sebagai thread balasan web. Helpdesk/admin dapat mengirim solusi melalui `POST /api/tickets/:id/comments`; operator membalas melalui `POST /api/tickets/my/:id/comments`, lalu mengonfirmasi hasil solusi memakai `PATCH /api/tickets/my/:id/resolution`. Jika `resolved: true`, ticket menjadi `CLOSED` dan session ditandai `RESOLVED`; jika `resolved: false`, ticket kembali `IN_PROGRESS`.
 
 ## Demo End-to-End
 
@@ -303,7 +305,7 @@ Gunakan command tersebut setelah seed, import data lama, atau migration dari sis
 
 ## Mailpit
 
-Untuk development, gunakan Mailpit dengan `SMTP_HOST=localhost` dan `SMTP_PORT=1025`. `SMTP_USER` dan `SMTP_PASS` boleh kosong. Endpoint send-email tetap mencatat `EmailLog` dengan status `SENT` atau `FAILED`, lalu mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` untuk dipakai UI helpdesk.
+Untuk development, gunakan Mailpit dengan `SMTP_HOST=localhost` dan `SMTP_PORT=1025`. `SMTP_USER` dan `SMTP_PASS` boleh kosong. Endpoint send-email tetap mencatat `EmailLog` dengan status `SENT` atau `FAILED`, lalu mengembalikan `source.ticketId`, `source.sessionId`, dan `mailpitUrl` untuk dipakai UI helpdesk. Email/Mailpit berfungsi sebagai notifikasi dan arsip; penyampaian solusi ke operator tetap dilakukan dari thread balasan ticket di web.
 
 Jalankan Mailpit dengan Docker:
 

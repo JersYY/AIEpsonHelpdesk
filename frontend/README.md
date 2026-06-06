@@ -45,9 +45,9 @@ http://localhost:5173
 - `/pending-approval` - halaman terkunci untuk operator yang sudah register tetapi belum disetujui admin.
 - `/chat` - chat troubleshooting untuk role `USER`.
 - `/dashboard` - dashboard user dengan quick actions, Popular Issues live 30 hari, dan recent activity.
-- `/tickets` - ticket milik user.
+- `/tickets` - ticket milik user, thread balasan helpdesk, dan konfirmasi solusi.
 - `/helpdesk/tickets` - queue ticket untuk `HELPDESK`/`ADMIN`.
-- `/helpdesk/tickets/:id` - detail ticket, summary, history chat, dan email report.
+- `/helpdesk/tickets/:id` - detail ticket, summary, thread balasan ke operator, history chat, dan email report.
 - `/helpdesk/email-logs` - riwayat email report.
 - `/admin/accounts` - approval akun operator baru.
 - `/admin/*` - area admin analytics, chat logs, account approval, knowledge documents, category master, dan learning review.
@@ -59,7 +59,7 @@ http://localhost:5173
 - Theme disimpan lewat preferences API dan fallback localStorage.
 - Popular Issues auto-refresh tiap 10 detik di dashboard.
 - Bubble chat menampilkan catatan ketika jawaban AI tidak memakai rujukan knowledge base, supaya user tahu kapan sebaiknya eskalasi.
-- Flow email report menerima `mailpitUrl` dari backend, sehingga UI dapat membuka Mailpit, Email Logs, dan history chat terkait.
+- Flow email report menerima `mailpitUrl` dari backend, sehingga UI dapat membuka Mailpit, Email Logs, dan history chat terkait. Email dipakai sebagai notifikasi/arsip, sementara tindak lanjut kasus dilakukan lewat thread balasan ticket.
 - Admin Knowledge Base punya tab Documents dan Categories; category bisa dibuat dari tab khusus atau langsung dari modal dokumen.
 - Landing internal Epson, hamburger menu, login/register, pending approval, AppShell, dashboard, chat, tickets, dan admin views dirancang responsive untuk ponsel, tablet, dan desktop.
 

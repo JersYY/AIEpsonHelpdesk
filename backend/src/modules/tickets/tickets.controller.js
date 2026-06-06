@@ -28,3 +28,11 @@ export const getTicket = asyncHandler(async (req, res) => {
 export const updateTicketStatus = asyncHandler(async (req, res) => {
   return sendSuccess(res, await TicketsService.updateStatus(req.params.id, req.body));
 });
+
+export const addTicketComment = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await TicketsService.addComment(req.user, req.params.id, req.body), 201);
+});
+
+export const updateMyTicketResolution = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await TicketsService.updateMyResolution(req.user, req.params.id, req.body));
+});

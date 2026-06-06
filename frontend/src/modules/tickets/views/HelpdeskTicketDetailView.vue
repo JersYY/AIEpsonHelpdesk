@@ -12,6 +12,8 @@ const ticket = ref(null)
 const loading = ref(false)
 const updating = ref(false)
 const historyEl = ref(null)
+const commentText = ref('')
+const commentBusy = ref(false)
 
 const summary = ref('')
 const recipient = ref('')
@@ -20,6 +22,12 @@ const sending = ref(false)
 const emailResult = ref(null)
 
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']
+
+const applyTicketUpdate = (updated) => {
+  const currentSession = ticket.value?.session
+  const nextSession = currentSession?.messages ? { ...updated.session, ...currentSession } : updated.session
+  ticket.value = { ...ticket.value, ...updated, session: nextSession }
+}
 
 const load = async () => {
   loading.value = true
@@ -37,9 +45,22 @@ const setStatus = async (status) => {
   updating.value = true
   try {
     const res = await ticketService.updateTicketStatus(ticket.value.id, status)
-    ticket.value = res.data.data
+    applyTicketUpdate(res.data.data)
   } finally {
     updating.value = false
+  }
+}
+
+const sendComment = async () => {
+  const message = commentText.value.trim()
+  if (!message) return
+  commentBusy.value = true
+  try {
+    const res = await ticketService.addTicketComment(ticket.value.id, { message })
+    applyTicketUpdate(res.data.data)
+    commentText.value = ''
+  } finally {
+    commentBusy.value = false
   }
 }
 
@@ -68,6 +89,7 @@ const sendEmail = async () => {
 
 const fmtDate = (d) => new Date(d).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
 const senderLabel = (sender) => sender === 'USER' ? 'User' : sender === 'AI' ? 'AI' : 'System'
+const roleLabel = (role) => role === 'USER' ? 'Operator' : role === 'HELPDESK' ? 'Helpdesk' : 'Admin'
 const messageImage = (message) => message.image?.storedName ? `/uploads/${message.image.storedName}` : null
 const openMailpit = () => {
   if (emailResult.value?.mailpitUrl) window.open(emailResult.value.mailpitUrl, '_blank', 'noopener,noreferrer')
@@ -133,6 +155,51 @@ onMounted(load)
               {{ s }}
             </button>
           </div>
+        </div>
+
+        <div
+          v-motion
+          :initial="{ opacity: 0, y: 10 }"
+          :enter="{ opacity: 1, y: 0, transition: { duration: 260, delay: 80 } }"
+          class="card"
+          style="margin-bottom: 16px;"
+        >
+          <div class="reply-head">
+            <div>
+              <h3>Balasan ke Operator</h3>
+              <p class="muted">Tulis solusi, arahan pengecekan, atau update progres langsung di ticket.</p>
+            </div>
+            <span class="badge badge-medium">{{ ticket.comments?.length || 0 }} update</span>
+          </div>
+
+          <div v-if="ticket.comments?.length" class="thread-list">
+            <div
+              v-for="comment in ticket.comments"
+              :key="comment.id"
+              class="thread-message"
+              :class="(comment.author?.role || '').toLowerCase()"
+            >
+              <div class="thread-meta">
+                <div>
+                  <strong>{{ comment.author?.name || 'User' }}</strong>
+                  <span>{{ roleLabel(comment.author?.role) }}</span>
+                </div>
+                <small>{{ fmtDate(comment.createdAt) }}</small>
+              </div>
+              <p>{{ comment.message }}</p>
+            </div>
+          </div>
+          <p v-else class="muted" style="margin-bottom: 12px;">Belum ada balasan. Kirim solusi pertama untuk operator.</p>
+
+          <textarea
+            v-model="commentText"
+            class="input reply-input"
+            rows="4"
+            placeholder="Tulis solusi, arahan pengecekan, atau update progres untuk operator."
+          ></textarea>
+          <button class="btn btn-primary" :disabled="commentBusy || !commentText.trim()" @click="sendComment">
+            <i class="fa-solid fa-paper-plane"></i> Kirim Balasan
+          </button>
         </div>
 
         <div
@@ -244,6 +311,18 @@ onMounted(load)
 .email-result-card.fail .email-result i { color: var(--color-danger); }
 .email-result p { color: var(--color-muted); margin-top: 2px; }
 .email-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.reply-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.reply-head h3 { margin-bottom: 2px; }
+.thread-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.thread-message { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px; background: var(--color-bg); }
+.thread-message.helpdesk,
+.thread-message.admin { background: rgba(43, 187, 126, 0.08); }
+.thread-message.user { background: rgba(79, 156, 255, 0.08); }
+.thread-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--color-muted); font-size: 12px; margin-bottom: 8px; }
+.thread-meta strong { color: var(--color-text); display: block; }
+.thread-meta span { display: block; margin-top: 2px; }
+.thread-message p { white-space: pre-wrap; line-height: 1.55; }
+.reply-input { margin-bottom: 10px; resize: vertical; }
 .history-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .history-head h3 { margin-bottom: 2px; }
 .history-list { display: flex; flex-direction: column; gap: 10px; }
@@ -254,5 +333,9 @@ onMounted(load)
 .history-meta strong { color: var(--color-text); }
 .history-message p { white-space: pre-wrap; line-height: 1.6; }
 .history-message img { max-width: 220px; margin-top: 10px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
-@media (max-width: 860px) { .detail-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  .reply-head,
+  .thread-meta { flex-direction: column; }
+}
 </style>

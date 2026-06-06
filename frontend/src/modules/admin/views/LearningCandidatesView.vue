@@ -102,15 +102,15 @@ onMounted(load)
         <h3 class="page-title">Review Candidate</h3>
         <span class="badge" :class="`badge-${(selected.status || '').toLowerCase()}`" style="margin-bottom: 12px;">{{ selected.status }}</span>
 
-        <label class="muted" style="font-size: 12px;">Judul</label>
+        <label class="muted" style="font-size: 12px;"><br>Judul</label>
         <input v-model="editForm.title" class="input" style="margin: 4px 0 12px;" />
-        <label class="muted" style="font-size: 12px;">Konten (sudah diredaksi)</label>
+        <label class="muted" style="font-size: 12px;">Konten </label>
         <textarea v-model="editForm.content" class="input" rows="10" style="margin: 4px 0 16px;"></textarea>
 
         <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
           <button class="btn btn-ghost" :disabled="busy" @click="saveEdit">Simpan Edit</button>
           <button class="btn btn-danger" :disabled="busy" @click="reject">Tolak</button>
-          <button class="btn btn-primary" :disabled="busy" @click="approve">Setujui → Knowledge</button>
+          <button class="btn btn-primary" :disabled="busy" @click="approve">Setujui Knowledge</button>
         </div>
       </div>
     </div>

@@ -25,6 +25,8 @@ const load = async () => {
 }
 
 const fmtDate = (d) => new Date(d).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+const lastComment = (ticket) => ticket.comments?.length ? ticket.comments[ticket.comments.length - 1] : null
+const roleLabel = (role) => role === 'USER' ? 'Operator' : role === 'HELPDESK' ? 'Helpdesk' : 'Admin'
 
 onMounted(load)
 </script>
@@ -58,40 +60,51 @@ onMounted(load)
       Tidak ada ticket.
     </div>
 
-    <table v-else class="data-table">
-      <thead>
-        <tr>
-          <th>Ticket</th>
-          <th>Pemohon</th>
-          <th>Ringkasan</th>
-          <th>Status</th>
-          <th>Prioritas</th>
-          <th>Dibuat</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="(t, index) in tickets"
-          :key="t.id"
-          v-motion
-          :initial="{ opacity: 0, y: 8 }"
-          :enter="{ opacity: 1, y: 0, transition: { duration: 180, delay: index * 22 } }"
-          @click="router.push(`/helpdesk/tickets/${t.id}`)"
-        >
-          <td><strong>{{ t.ticketCode }}</strong></td>
-          <td>{{ t.user?.name }}<br /><span class="muted">{{ t.user?.employeeId }}</span></td>
-          <td class="truncate">{{ t.summary }}</td>
-          <td><span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ t.status }}</span></td>
-          <td><span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ t.priority }}</span></td>
-          <td class="muted">{{ fmtDate(t.createdAt) }}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="table-shell">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Pemohon</th>
+            <th>Ringkasan</th>
+            <th>Update</th>
+            <th>Status</th>
+            <th>Prioritas</th>
+            <th>Dibuat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(t, index) in tickets"
+            :key="t.id"
+            v-motion
+            :initial="{ opacity: 0, y: 8 }"
+            :enter="{ opacity: 1, y: 0, transition: { duration: 180, delay: index * 22 } }"
+            @click="router.push(`/helpdesk/tickets/${t.id}`)"
+          >
+            <td><strong>{{ t.ticketCode }}</strong></td>
+            <td>{{ t.user?.name }}<br /><span class="muted">{{ t.user?.employeeId }}</span></td>
+            <td class="truncate">{{ t.summary }}</td>
+            <td>
+              <template v-if="lastComment(t)">
+                <span class="update-pill">{{ t.comments.length }} balasan</span>
+                <small class="muted">Terakhir: {{ roleLabel(lastComment(t).author?.role) }}</small>
+              </template>
+              <span v-else class="muted">Belum ada</span>
+            </td>
+            <td><span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ t.status }}</span></td>
+            <td><span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ t.priority }}</span></td>
+            <td class="muted">{{ fmtDate(t.createdAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .filter-bar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.table-shell { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .data-table th {
   text-align: left;
@@ -105,4 +118,10 @@ onMounted(load)
 .data-table tbody tr { cursor: pointer; }
 .data-table tbody tr:hover { background: var(--color-surface); }
 .truncate { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.update-pill { display: block; color: var(--color-text); font-weight: 700; margin-bottom: 2px; }
+@media (max-width: 720px) {
+  .filter-bar .input { max-width: none !important; width: 100%; }
+  .filter-bar .btn { width: 44px; }
+  .data-table { min-width: 820px; }
+}
 </style>

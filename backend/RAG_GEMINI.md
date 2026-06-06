@@ -512,7 +512,7 @@ Expected:
 Setelah chat dieskalasi:
 
 - `POST /api/tickets/escalate` membuat ticket dengan summary multi-section.
-- `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]`.
+- `GET /api/tickets/:id` untuk helpdesk/admin menyertakan `session.messages[]` dan `comments[]`.
 - `POST /api/reports/summary` mengembalikan format summary yang sama.
 
 ## Roadmap Implementasi
