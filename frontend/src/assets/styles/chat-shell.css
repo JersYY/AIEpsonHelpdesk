@@ -258,7 +258,8 @@
   text-align: center;
   font-size: 11px;
   color: var(--color-muted);
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-bottom: -2px;
 }
 
 .composer-preview {

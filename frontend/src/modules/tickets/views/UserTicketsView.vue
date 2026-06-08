@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import ticketService from '../../../services/ticket.service.js'
+import { formatStatus, formatPriority } from '../../../utils/formatters.js'
 
 const router = useRouter()
 const tickets = ref([])
@@ -93,13 +94,14 @@ onMounted(load)
       <button class="btn btn-primary" @click="router.push('/chat')">Mulai Chat</button>
     </div>
 
+
     <div v-else class="ticket-list">
       <div v-for="t in tickets" :key="t.id" class="card ticket-item" @click="openTicket(t)">
         <div style="flex: 1;">
           <div style="display: flex; gap: 8px; align-items: center;">
             <strong>{{ t.ticketCode }}</strong>
-            <span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ t.status }}</span>
-            <span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ t.priority }}</span>
+            <span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ formatStatus(t.status) }}</span>
+            <span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ formatPriority(t.priority) }}</span>
           </div>
           <p class="muted truncate" style="margin-top: 6px; font-size: 13px;">{{ t.summary }}</p>
         </div>
@@ -113,8 +115,8 @@ onMounted(load)
           <div>
             <h3 class="page-title" style="margin: 0;">{{ selected.ticketCode }}</h3>
             <div class="modal-badges">
-              <span class="badge" :class="`badge-${(selected.status || '').toLowerCase()}`">{{ selected.status }}</span>
-              <span class="badge" :class="`badge-${(selected.priority || '').toLowerCase()}`">{{ selected.priority }}</span>
+              <span class="badge" :class="`badge-${(selected.status || '').toLowerCase()}`">{{ formatStatus(selected.status) }}</span>
+              <span class="badge" :class="`badge-${(selected.priority || '').toLowerCase()}`">{{ formatPriority(selected.priority) }}</span>
             </div>
           </div>
           <button class="modal-close" aria-label="Tutup detail ticket" @click="closeModal">

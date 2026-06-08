@@ -1,4 +1,7 @@
 <script setup>
+import { defineProps } from 'vue'
+import { formatStatus } from '../../../utils/formatters.js'
+
 defineProps({
     title: String,
     time: String,
@@ -31,9 +34,9 @@ defineProps({
 
         <div
             class="activity-status"
-            :class="status?.toLowerCase()"
+            :class="(status || '').toLowerCase()"
         >
-            {{ status }}
+            {{ formatStatus(status) }}
         </div>
 
     </div>

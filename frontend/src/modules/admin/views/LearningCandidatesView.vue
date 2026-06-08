@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 import LearningService from '../../../services/learning.service.js'
+import { formatStatus } from '../../../utils/formatters.js'
 
 const candidates = ref([])
 const loading = ref(false)
@@ -113,7 +114,7 @@ onMounted(load)
     <div v-if="selected" class="modal-backdrop" @click.self="selected = null">
       <div class="modal-card">
         <h3 class="page-title">Review Candidate</h3>
-        <span class="badge" :class="`badge-${(selected.status || '').toLowerCase()}`" style="margin-bottom: 12px;">{{ selected.status }}</span>
+        <span class="badge" :class="`badge-${(selected.status || '').toLowerCase()}`" style="margin-bottom: 12px;">{{ formatStatus(selected.status) }}</span>
 
         <label class="muted" style="font-size: 12px;"><br>Judul</label>
         <input v-model="editForm.title" class="input" style="margin: 4px 0 12px;" />

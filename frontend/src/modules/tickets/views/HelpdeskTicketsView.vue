@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import ticketService from '../../../services/ticket.service.js'
+import { formatStatus, formatPriority } from '../../../utils/formatters.js'
 
 const router = useRouter()
 
@@ -92,8 +93,8 @@ onMounted(load)
               </template>
               <span v-else class="muted">Belum ada</span>
             </td>
-            <td><span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ t.status }}</span></td>
-            <td><span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ t.priority }}</span></td>
+            <td><span class="badge" :class="`badge-${(t.status || '').toLowerCase()}`">{{ formatStatus(t.status) }}</span></td>
+            <td><span class="badge" :class="`badge-${(t.priority || '').toLowerCase()}`">{{ formatPriority(t.priority) }}</span></td>
             <td class="muted">{{ fmtDate(t.createdAt) }}</td>
           </tr>
         </tbody>

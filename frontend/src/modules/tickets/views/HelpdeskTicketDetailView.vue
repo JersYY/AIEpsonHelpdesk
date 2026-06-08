@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import ticketService from '../../../services/ticket.service.js'
+import { formatStatus, formatPriority } from '../../../utils/formatters.js'
 import ReportService from '../../../services/report.service.js'
 import { uploadImageUrl } from '../../../utils/media.js'
 import ConfirmModal from '../../../components/common/ConfirmModal.vue'
@@ -138,8 +139,8 @@ onMounted(load)
               <p class="muted">{{ ticket.user?.name }} ({{ ticket.user?.employeeId }})</p>
             </div>
             <div style="display: flex; gap: 6px;">
-              <span class="badge" :class="`badge-${(ticket.status || '').toLowerCase()}`">{{ ticket.status }}</span>
-              <span class="badge" :class="`badge-${(ticket.priority || '').toLowerCase()}`">{{ ticket.priority }}</span>
+              <span class="badge" :class="`badge-${(ticket.status || '').toLowerCase()}`">{{ formatStatus(ticket.status) }}</span>
+              <span class="badge" :class="`badge-${(ticket.priority || '').toLowerCase()}`">{{ formatPriority(ticket.priority) }}</span>
             </div>
           </div>
           <p class="ticket-summary-text">{{ ticket.summary }}</p>
@@ -163,7 +164,7 @@ onMounted(load)
               :disabled="updating"
               @click="setStatus(s)"
             >
-              {{ s }}
+              {{ formatStatus(s) }}
             </button>
           </div>
         </div>

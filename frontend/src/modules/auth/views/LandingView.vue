@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import '../../../assets/styles/login.css'
+import Footer from '../../../components/layout/Footer.vue'
+import '../../../assets/styles/landing.css'
 import '../../../assets/styles/shell.css'
 import { usePreferencesStore } from '../../../stores/preferences.store'
 
@@ -106,6 +107,7 @@ const go = (path) => {
         :enter="{ opacity: 1, y: 0, transition: { duration: 420 } }"
         class="landing-copy"
       >
+
         <p class="landing-kicker">Internal Epson Support Desk</p>
         <h1>Bantuan teknis Epson, cepat dan terdokumentasi.</h1>
         <p class="landing-description">
@@ -128,24 +130,32 @@ const go = (path) => {
         v-motion
         :initial="{ opacity: 0, y: 24, scale: 0.98 }"
         :enter="{ opacity: 1, y: 0, scale: 1, transition: { duration: 480, delay: 90 } }"
-        class="landing-chat"
+        class="landing-chat-wrapper"
       >
-        <div class="landing-chat-header">
-          <i class="fa-regular fa-message"></i>
-          Preview percakapan helpdesk
-        </div>
-        <div class="landing-message ai">
-          Halo, tuliskan kendala perangkat Epson yang sedang terjadi di area kerja Anda.
-        </div>
-        <div class="landing-message user">
-          Printer line assembly tidak muncul di jaringan operator.
-        </div>
-        <div class="landing-message ai">
-          Baik. Saya akan susun langkah cek koneksi, IP address, gateway, dan opsi eskalasi bila perlu.
-        </div>
-        <div class="landing-chat-input">
-          <span>Tulis kendala perangkat Epson...</span>
-          <i class="fa-solid fa-arrow-up"></i>
+        <div class="landing-chat">
+          <div class="landing-chat-header">
+            <div class="landing-chat-header-left">
+              <i class="fa-regular fa-message"></i>
+              Preview percakapan helpdesk
+            </div>
+            <div class="landing-chat-status">
+              <div class="pulse"></div>
+              Online
+            </div>
+          </div>
+          <div class="landing-message ai">
+            Halo, tuliskan kendala perangkat Epson yang sedang terjadi di area kerja Anda.
+          </div>
+          <div class="landing-message user">
+            Printer line assembly tidak muncul di jaringan operator.
+          </div>
+          <div class="landing-message ai">
+            Baik. Saya akan susun langkah cek koneksi, IP address, gateway, dan opsi eskalasi bila perlu.
+          </div>
+          <div class="landing-chat-input">
+            <span>Tulis kendala perangkat Epson...</span>
+            <i class="fa-solid fa-arrow-up"></i>
+          </div>
         </div>
       </div>
     </section>
@@ -272,5 +282,7 @@ const go = (path) => {
         </div>
       </div>
     </section>
+
+    <Footer />
   </main>
 </template>
