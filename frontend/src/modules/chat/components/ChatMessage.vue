@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { renderMessage } from '../../../utils/formatter.js'
+import { normalizeMediaUrl } from '../../../utils/media.js'
 
 const props = defineProps({
   message: { type: Object, required: true },
@@ -11,6 +12,8 @@ const emit = defineEmits(['feedback', 'regenerate', 'edit'])
 
 const editing = ref(false)
 const draft = ref('')
+const imageFailed = ref(false)
+const imageSrc = computed(() => normalizeMediaUrl(props.message.image))
 
 const startEdit = () => {
   draft.value = props.message.messageText
@@ -46,7 +49,17 @@ const isUser = () => props.message.sender === 'USER'
     </div>
 
     <div class="msg-body">
-      <img v-if="message.image" :src="message.image" class="msg-image" alt="attachment" />
+      <img
+        v-if="imageSrc && !imageFailed"
+        :src="imageSrc"
+        class="msg-image"
+        alt="Lampiran gambar"
+        @error="imageFailed = true"
+      />
+      <div v-else-if="message.image" class="msg-image-fallback">
+        <i class="fa-regular fa-image"></i>
+        <span>Gambar tidak dapat dimuat. Refresh halaman atau unggah ulang lampiran.</span>
+      </div>
 
       <!-- USER message (with optional inline edit) -->
       <template v-if="isUser()">
@@ -106,4 +119,17 @@ const isUser = () => props.message.sender === 'USER'
 <style scoped>
 .edit-box { width: 100%; min-width: 320px; display: flex; flex-direction: column; gap: 8px; }
 .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.msg-image-fallback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 280px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  background: var(--color-surface);
+  font-size: 12px;
+}
 </style>

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
+import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 import LearningService from '../../../services/learning.service.js'
 
 const candidates = ref([])
@@ -9,6 +10,19 @@ const statusFilter = ref('PENDING')
 const selected = ref(null)
 const editForm = ref({ title: '', content: '' })
 const busy = ref(false)
+const reviewAction = ref(null)
+const rejectReason = ref('')
+
+const reviewTitle = computed(() => (
+  reviewAction.value === 'approve' ? 'Setujui sebagai knowledge?' : 'Tolak kandidat knowledge?'
+))
+const reviewMessage = computed(() => {
+  if (!selected.value) return ''
+  if (reviewAction.value === 'approve') {
+    return `"${selected.value.title}" akan masuk ke knowledge base dan bisa dipakai AI untuk menjawab operator.`
+  }
+  return `"${selected.value.title}" akan ditandai sebagai ditolak dan tidak dipakai sebagai sumber jawaban AI.`
+})
 
 const load = async () => {
   loading.value = true
@@ -36,22 +50,21 @@ const saveEdit = async () => {
   }
 }
 
-const approve = async () => {
-  busy.value = true
-  try {
-    await LearningService.approve(selected.value.id)
-    selected.value = null
-    await load()
-  } finally {
-    busy.value = false
-  }
+const openReviewAction = (action) => {
+  reviewAction.value = action
+  rejectReason.value = ''
 }
 
-const reject = async () => {
-  const reason = prompt('Alasan menolak (opsional):') || null
+const confirmReviewAction = async () => {
+  if (!selected.value || !reviewAction.value) return
   busy.value = true
   try {
-    await LearningService.reject(selected.value.id, reason)
+    if (reviewAction.value === 'approve') {
+      await LearningService.approve(selected.value.id)
+    } else {
+      await LearningService.reject(selected.value.id, rejectReason.value.trim() || null)
+    }
+    reviewAction.value = null
     selected.value = null
     await load()
   } finally {
@@ -109,11 +122,31 @@ onMounted(load)
 
         <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
           <button class="btn btn-ghost" :disabled="busy" @click="saveEdit">Simpan Edit</button>
-          <button class="btn btn-danger" :disabled="busy" @click="reject">Tolak</button>
-          <button class="btn btn-primary" :disabled="busy" @click="approve">Setujui Knowledge</button>
+          <button class="btn btn-danger" :disabled="busy" @click="openReviewAction('reject')">Tolak</button>
+          <button class="btn btn-primary" :disabled="busy" @click="openReviewAction('approve')">Setujui Knowledge</button>
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="reviewAction"
+      :title="reviewTitle"
+      :message="reviewMessage"
+      :confirm-label="reviewAction === 'approve' ? 'Setujui' : 'Tolak'"
+      :variant="reviewAction === 'approve' ? 'primary' : 'danger'"
+      :icon="reviewAction === 'approve' ? 'fa-circle-check' : 'fa-ban'"
+      :busy="busy"
+      @cancel="reviewAction = null"
+      @confirm="confirmReviewAction"
+    >
+      <textarea
+        v-if="reviewAction === 'reject'"
+        v-model="rejectReason"
+        class="input reject-reason"
+        rows="3"
+        placeholder="Tambahkan alasan penolakan (opsional)"
+      ></textarea>
+    </ConfirmModal>
   </div>
 </template>
 
@@ -123,4 +156,5 @@ onMounted(load)
 .cand-item:hover { background: var(--color-surface-strong); }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
 .modal-card { background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 12px; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.reject-reason { margin-top: 14px; resize: vertical; min-height: 92px; }
 </style>

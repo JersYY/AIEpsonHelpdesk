@@ -62,6 +62,27 @@ const buildGenericTroubleshootingAnswer = (message) => [
   SAFETY_NOTE,
 ].join("\n");
 
+const buildImageFallbackAnswer = (message = "") => {
+  if (isImageIdentityQuestion(message)) {
+    return [
+      "Saya belum bisa memastikan tipe atau model printer hanya dari gambar ini.",
+      "Agar tidak salah identifikasi, mohon kirim foto yang lebih jelas pada bagian label model, panel depan, atau stiker serial number.",
+      "Biasanya informasi model Epson terlihat di bagian depan perangkat, dekat panel tombol, atau pada stiker belakang/bawah unit.",
+    ].join("\n");
+  }
+
+  return [
+    "Saya menerima gambar yang Anda lampirkan, tetapi belum bisa memastikan detail teknisnya dengan aman.",
+    "Mohon tambahkan informasi model perangkat, gejala yang muncul, kode error/lampu indikator, dan tindakan yang sudah dicoba.",
+    "Jika gambar menunjukkan kerusakan fisik, cairan, asap, atau kabel rusak, hentikan penggunaan perangkat dan eskalasikan ke helpdesk/teknisi resmi.",
+  ].join("\n");
+};
+
+const isImageIdentityQuestion = (message = "") => {
+  const text = String(message || "").toLowerCase();
+  return ["tipe", "model", "seri", "jenis", "apa"].some((word) => text.includes(word));
+};
+
 const isPowerIssue = (message = "") => {
   const text = message.toLowerCase();
   const powerWords = ["mati", "tidak menyala", "tidak nyala", "tdk nyala", "gak nyala", "ga nyala", "tidak hidup", "tidak bisa nyala", "tidak mau nyala", "no power", "won't turn on", "tidak menyala sama sekali"];
@@ -121,7 +142,7 @@ const buildSafeFallbackAnswer = (message = "") => {
   return buildGenericTroubleshootingAnswer(cleanMessage || "perangkat Epson Anda");
 };
 
-const mockAnswer = ({ message, contexts, intent: providedIntent = null }) => {
+const mockAnswer = ({ message, contexts, intent: providedIntent = null, imagePath = null }) => {
   const arithmetic = IntentService.calculateSimpleArithmetic(message);
   if (arithmetic) {
     return `Hasilnya ${arithmetic.result}. Jika ada pertanyaan troubleshooting Epson, jelaskan gejala mesin atau defect yang muncul agar saya bisa cek knowledge base.`;
@@ -135,6 +156,10 @@ const mockAnswer = ({ message, contexts, intent: providedIntent = null }) => {
 
   if (intent === "other") {
     return buildOutOfScopeAnswer();
+  }
+
+  if (imagePath && (isImageIdentityQuestion(message) || !contexts.length)) {
+    return buildImageFallbackAnswer(message);
   }
 
   // Intent helpdesk: utamakan artikel knowledge base spesifik bila benar-benar cocok.
@@ -160,14 +185,14 @@ export const GenerationService = {
       // TODO(ai-engineer): replace silent fallback with structured internal AI logs.
       return {
         provider: "mock",
-        text: mockAnswer({ message, contexts, intent }),
+        text: mockAnswer({ message, contexts, intent, imagePath }),
         error: error.message,
       };
     }
 
     return {
       provider: "mock",
-      text: mockAnswer({ message, contexts, intent }),
+      text: mockAnswer({ message, contexts, intent, imagePath }),
     };
   },
 };

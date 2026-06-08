@@ -1,10 +1,20 @@
 import { defineStore } from 'pinia'
 import chatService from '../services/chat.service'
+import { normalizeMediaUrl, uploadImageUrl } from '../utils/media'
 
 const withAiSourceMeta = (aiMessage = {}, contexts = []) => ({
   ...aiMessage,
   knowledgeGrounded: Boolean(aiMessage.knowledgeGrounded ?? contexts.length),
   showAiSourceNote: aiMessage.sender === 'AI' && !Boolean(aiMessage.knowledgeGrounded ?? contexts.length),
+})
+
+const toChatMessage = (message = {}, fallbackImage = null) => ({
+  id: message.id || null,
+  sender: message.sender,
+  messageText: message.messageText || '',
+  image: uploadImageUrl(message.image) || normalizeMediaUrl(fallbackImage),
+  feedback: message.feedback || null,
+  showAiSourceNote: false,
 })
 
 export const useChatStore = defineStore('chat', {
@@ -55,12 +65,7 @@ export const useChatStore = defineStore('chat', {
         const session = data.data
         this.sessionId = session.id
         this.messages = (session.messages || []).map((m) => ({
-          id: m.id,
-          sender: m.sender,
-          messageText: m.messageText,
-          image: m.image ? `/uploads/${m.image.storedName}` : null,
-          feedback: m.feedback || null,
-          showAiSourceNote: false,
+          ...toChatMessage(m),
         }))
       } finally {
         this.loading = false
@@ -68,7 +73,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async send({ message, imageId = null, imagePreview = null }) {
-      this.messages.push({ sender: 'USER', messageText: message, image: imagePreview })
+      const optimisticIndex = this.messages.push({ sender: 'USER', messageText: message, image: imagePreview }) - 1
       this.sending = true
       try {
         const { data } = await chatService.sendMessage({
@@ -87,6 +92,9 @@ export const useChatStore = defineStore('chat', {
 
         this.contexts = payload.contexts || []
         this.lastConfidence = payload.aiMessage?.confidenceScore ?? null
+        if (payload.userMessage) {
+          this.messages[optimisticIndex] = toChatMessage(payload.userMessage, imagePreview)
+        }
         this.messages.push(withAiSourceMeta({
           id: payload.aiMessage?.id || null,
           sender: 'AI',

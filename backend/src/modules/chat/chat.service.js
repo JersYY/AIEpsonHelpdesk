@@ -190,6 +190,7 @@ export const ChatService = {
         messageText: message || "[Gambar diunggah]",
         imageId: image?.id || null,
       },
+      include: { image: true },
     });
 
     const { categoryPrediction, contexts, answer, responseTimeMs, score, escalation } =

@@ -1,11 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 
+import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 import AdminService from '../../../services/admin.service.js'
 
 const accounts = ref([])
 const status = ref('PENDING')
 const loading = ref(false)
+const pendingReview = ref(null)
+const reviewBusy = ref(false)
 
 const load = async () => {
   loading.value = true
@@ -17,11 +20,20 @@ const load = async () => {
   }
 }
 
-const review = async (account, nextStatus) => {
-  const action = nextStatus === 'ACTIVE' ? 'approve' : 'reject'
-  if (!confirm(`${action === 'approve' ? 'Setujui' : 'Tolak'} akun ${account.employeeId}?`)) return
-  await AdminService.updateAccountStatus(account.id, { status: nextStatus })
-  await load()
+const openReview = (account, nextStatus) => {
+  pendingReview.value = { account, nextStatus }
+}
+
+const confirmReview = async () => {
+  if (!pendingReview.value) return
+  reviewBusy.value = true
+  try {
+    await AdminService.updateAccountStatus(pendingReview.value.account.id, { status: pendingReview.value.nextStatus })
+    pendingReview.value = null
+    await load()
+  } finally {
+    reviewBusy.value = false
+  }
 }
 
 onMounted(load)
@@ -60,7 +72,7 @@ onMounted(load)
           <button
             class="btn btn-primary"
             :disabled="account.accountStatus === 'ACTIVE'"
-            @click="review(account, 'ACTIVE')"
+            @click="openReview(account, 'ACTIVE')"
           >
             <i class="fa-solid fa-check"></i>
             Approve
@@ -68,7 +80,7 @@ onMounted(load)
           <button
             class="btn btn-ghost"
             :disabled="account.accountStatus === 'REJECTED'"
-            @click="review(account, 'REJECTED')"
+            @click="openReview(account, 'REJECTED')"
           >
             <i class="fa-solid fa-xmark"></i>
             Reject
@@ -77,6 +89,18 @@ onMounted(load)
       </article>
       <p v-if="!accounts.length" class="muted">Tidak ada akun pada status ini.</p>
     </section>
+
+    <ConfirmModal
+      v-if="pendingReview"
+      :title="pendingReview.nextStatus === 'ACTIVE' ? 'Setujui akun operator?' : 'Tolak akun operator?'"
+      :message="`${pendingReview.account.name} (${pendingReview.account.employeeId}) akan ${pendingReview.nextStatus === 'ACTIVE' ? 'mendapat akses ke Epson Helpdesk' : 'ditandai sebagai ditolak'}.`"
+      :confirm-label="pendingReview.nextStatus === 'ACTIVE' ? 'Approve' : 'Reject'"
+      :variant="pendingReview.nextStatus === 'ACTIVE' ? 'primary' : 'danger'"
+      :icon="pendingReview.nextStatus === 'ACTIVE' ? 'fa-user-check' : 'fa-user-xmark'"
+      :busy="reviewBusy"
+      @cancel="pendingReview = null"
+      @confirm="confirmReview"
+    />
   </div>
 </template>
 

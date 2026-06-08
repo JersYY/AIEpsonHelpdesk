@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
+import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 import AdminService from '../../../services/admin.service.js'
 
 const docs = ref([])
@@ -19,14 +20,30 @@ const categorySaving = ref(false)
 const quickCategoryOpen = ref(false)
 const quickCategory = ref({ name: '', description: '' })
 const quickSaving = ref(false)
+const deleteTarget = ref(null)
+const deleteBusy = ref(false)
+const notice = ref(null)
 
 const categoryOptions = computed(() => categories.value)
+const deleteTitle = computed(() => deleteTarget.value?.type === 'category' ? 'Hapus category?' : 'Hapus dokumen?')
+const deleteMessage = computed(() => {
+  if (!deleteTarget.value) return ''
+  const item = deleteTarget.value.item
+  if (deleteTarget.value.type === 'category') {
+    return `Category "${item.name}" akan dihapus jika belum dipakai oleh dokumen, chat, ticket, atau learning candidate.`
+  }
+  return `Dokumen "${item.title}" dan semua chunk knowledge terkait akan dihapus permanen.`
+})
 
 const errorText = (error, fallback) => (
   error?.response?.data?.error?.message
   || error?.response?.data?.message
   || fallback
 )
+
+const showNotice = (title, message, variant = 'warning', icon = 'fa-circle-exclamation') => {
+  notice.value = { title, message, variant, icon }
+}
 
 const usageTotal = (category) => {
   const usage = category.usage || {}
@@ -71,7 +88,7 @@ const edit = (doc) => {
 
 const save = async () => {
   if (!form.value.title.trim() || !form.value.content.trim()) {
-    alert('Judul dan konten wajib diisi')
+    showNotice('Dokumen belum lengkap', 'Judul dan konten wajib diisi sebelum dokumen knowledge disimpan.')
     return
   }
   saving.value = true
@@ -84,19 +101,35 @@ const save = async () => {
     editing.value = null
     await load()
   } catch (error) {
-    alert(errorText(error, 'Gagal menyimpan dokumen'))
+    showNotice('Gagal menyimpan dokumen', errorText(error, 'Gagal menyimpan dokumen'), 'danger', 'fa-triangle-exclamation')
   } finally {
     saving.value = false
   }
 }
 
-const remove = async (doc) => {
-  if (!confirm(`Hapus "${doc.title}"?`)) return
+const remove = (doc) => {
+  deleteTarget.value = { type: 'document', item: doc }
+}
+
+const confirmRemove = async () => {
+  if (!deleteTarget.value) return
+  deleteBusy.value = true
   try {
-    await AdminService.deleteKnowledge(doc.id)
+    if (deleteTarget.value.type === 'category') {
+      await AdminService.deleteCategory(deleteTarget.value.item.id)
+    } else {
+      await AdminService.deleteKnowledge(deleteTarget.value.item.id)
+    }
+    deleteTarget.value = null
     await load()
   } catch (error) {
-    alert(errorText(error, 'Gagal menghapus dokumen'))
+    const details = error?.response?.data?.error?.details
+    const usage = details
+      ? ` Dipakai oleh knowledge: ${details.knowledgeDocuments || 0}, chat: ${details.chatSessions || 0}, ticket: ${details.escalationTickets || 0}.`
+      : ''
+    showNotice('Gagal menghapus data', `${errorText(error, 'Gagal menghapus data')}${usage}`, 'danger', 'fa-triangle-exclamation')
+  } finally {
+    deleteBusy.value = false
   }
 }
 
@@ -115,7 +148,7 @@ const editCategory = (category) => {
 
 const saveCategory = async () => {
   if (!categoryForm.value.name.trim()) {
-    alert('Nama category wajib diisi')
+    showNotice('Category belum lengkap', 'Nama category wajib diisi sebelum disimpan.')
     return
   }
   categorySaving.value = true
@@ -128,29 +161,19 @@ const saveCategory = async () => {
     categoryEditing.value = null
     await load()
   } catch (error) {
-    alert(errorText(error, 'Gagal menyimpan category'))
+    showNotice('Gagal menyimpan category', errorText(error, 'Gagal menyimpan category'), 'danger', 'fa-triangle-exclamation')
   } finally {
     categorySaving.value = false
   }
 }
 
-const removeCategory = async (category) => {
-  if (!confirm(`Hapus category "${category.name}"?`)) return
-  try {
-    await AdminService.deleteCategory(category.id)
-    await load()
-  } catch (error) {
-    const details = error?.response?.data?.error?.details
-    const usage = details
-      ? `\n\nDipakai oleh knowledge: ${details.knowledgeDocuments || 0}, chat: ${details.chatSessions || 0}, ticket: ${details.escalationTickets || 0}.`
-      : ''
-    alert(`${errorText(error, 'Gagal menghapus category')}${usage}`)
-  }
+const removeCategory = (category) => {
+  deleteTarget.value = { type: 'category', item: category }
 }
 
 const saveQuickCategory = async () => {
   if (!quickCategory.value.name.trim()) {
-    alert('Nama category wajib diisi')
+    showNotice('Category belum lengkap', 'Nama category wajib diisi sebelum ditambahkan ke dokumen.')
     return
   }
   quickSaving.value = true
@@ -162,7 +185,7 @@ const saveQuickCategory = async () => {
     quickCategoryOpen.value = false
     quickCategory.value = { name: '', description: '' }
   } catch (error) {
-    alert(errorText(error, 'Gagal membuat category'))
+    showNotice('Gagal membuat category', errorText(error, 'Gagal membuat category'), 'danger', 'fa-triangle-exclamation')
   } finally {
     quickSaving.value = false
   }
@@ -320,6 +343,30 @@ onMounted(load)
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="deleteTarget"
+      :title="deleteTitle"
+      :message="deleteMessage"
+      confirm-label="Hapus"
+      variant="danger"
+      icon="fa-trash"
+      :busy="deleteBusy"
+      @cancel="deleteTarget = null"
+      @confirm="confirmRemove"
+    />
+
+    <ConfirmModal
+      v-if="notice"
+      :title="notice.title"
+      :message="notice.message"
+      confirm-label="Mengerti"
+      :variant="notice.variant"
+      :icon="notice.icon"
+      :show-cancel="false"
+      @cancel="notice = null"
+      @confirm="notice = null"
+    />
   </div>
 </template>
 

@@ -14,6 +14,7 @@ const mimeFromExtension = (filePath) => {
 };
 
 const modelPath = (model) => (model.startsWith("models/") ? model : `models/${model}`);
+const supportsThinkingConfig = (model) => /gemini-2\.5/i.test(model);
 
 const sleep = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);
@@ -90,17 +91,20 @@ export const GeminiProvider = {
       }
     }
 
+    const generationConfig = {
+      temperature: aiConfig.gemini.temperature,
+      maxOutputTokens: aiConfig.gemini.maxOutputTokens,
+    };
+
+    if (supportsThinkingConfig(aiConfig.gemini.model)) {
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
     const data = await requestJson(
       `${GEMINI_API_BASE_URL}/${modelPath(aiConfig.gemini.model)}:generateContent`,
       {
         contents: [{ role: "user", parts }],
-        generationConfig: {
-          temperature: aiConfig.gemini.temperature,
-          maxOutputTokens: aiConfig.gemini.maxOutputTokens,
-          // Gemini 2.5 models use "thinking" tokens that consume the output budget.
-          // Disable it so the full answer fits within maxOutputTokens.
-          thinkingConfig: { thinkingBudget: 0 },
-        },
+        generationConfig,
         safetySettings: aiConfig.gemini.safetySettings,
       },
     );

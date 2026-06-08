@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import ticketService from '../../../services/ticket.service.js'
 import ReportService from '../../../services/report.service.js'
+import { uploadImageUrl } from '../../../utils/media.js'
+import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +22,7 @@ const recipient = ref('')
 const subject = ref('')
 const sending = ref(false)
 const emailResult = ref(null)
+const notice = ref(null)
 
 const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']
 
@@ -70,7 +73,15 @@ const generateSummary = async () => {
 }
 
 const sendEmail = async () => {
-  if (!recipient.value) return alert('Masukkan email penerima')
+  if (!recipient.value.trim()) {
+    notice.value = {
+      title: 'Email penerima belum diisi',
+      message: 'Masukkan alamat email tujuan sebelum report ticket dikirim.',
+      variant: 'warning',
+      icon: 'fa-envelope-circle-check',
+    }
+    return
+  }
   sending.value = true
   try {
     const res = await ReportService.sendEmail({
@@ -90,7 +101,7 @@ const sendEmail = async () => {
 const fmtDate = (d) => new Date(d).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
 const senderLabel = (sender) => sender === 'USER' ? 'User' : sender === 'AI' ? 'AI' : 'System'
 const roleLabel = (role) => role === 'USER' ? 'Operator' : role === 'HELPDESK' ? 'Helpdesk' : 'Admin'
-const messageImage = (message) => message.image?.storedName ? `/uploads/${message.image.storedName}` : null
+const messageImage = (message) => uploadImageUrl(message.image)
 const openMailpit = () => {
   if (emailResult.value?.mailpitUrl) window.open(emailResult.value.mailpitUrl, '_blank', 'noopener,noreferrer')
 }
@@ -295,6 +306,18 @@ onMounted(load)
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="notice"
+      :title="notice.title"
+      :message="notice.message"
+      confirm-label="Mengerti"
+      :variant="notice.variant"
+      :icon="notice.icon"
+      :show-cancel="false"
+      @cancel="notice = null"
+      @confirm="notice = null"
+    />
   </div>
 </template>
 

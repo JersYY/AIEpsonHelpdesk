@@ -174,8 +174,145 @@ export const openApiSpec = {
           summary: { type: "string" },
           status: { type: "string", enum: ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] },
           priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+          user: { $ref: "#/components/schemas/User" },
+          session: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              title: { type: "string", example: "Printer tidak terdeteksi jaringan" },
+              status: { type: "string", enum: ["ACTIVE", "RESOLVED", "ESCALATED"] },
+              messages: {
+                type: "array",
+                description: "Read-only chat history included on admin/helpdesk ticket detail.",
+                items: { $ref: "#/components/schemas/ChatMessage" },
+              },
+            },
+          },
+          category: { $ref: "#/components/schemas/IssueCategory" },
+          comments: {
+            type: "array",
+            items: { $ref: "#/components/schemas/TicketComment" },
+          },
+          emailLogs: {
+            type: "array",
+            items: { $ref: "#/components/schemas/EmailLog" },
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      TicketComment: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          ticketId: { type: "string", format: "uuid" },
+          authorId: { type: "string", format: "uuid" },
+          message: {
+            type: "string",
+            example: "Lakukan nozzle check, cek alignment, lalu balas ticket ini dengan hasil pengecekan.",
+          },
+          author: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              employeeId: { type: "string", example: "HD001" },
+              name: { type: "string", example: "Helpdesk Agent" },
+              role: { type: "string", enum: ["USER", "ADMIN", "HELPDESK"] },
+              department: { type: "string", nullable: true, example: "Helpdesk" },
+            },
+          },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      TicketCommentRequest: {
+        type: "object",
+        required: ["message"],
+        properties: {
+          message: {
+            type: "string",
+            maxLength: 4000,
+            example: "Solusi sudah dicoba, hasil nozzle check masih menunjukkan garis pada warna cyan.",
+          },
+        },
+      },
+      TicketResolutionRequest: {
+        type: "object",
+        required: ["resolved"],
+        properties: {
+          resolved: {
+            type: "boolean",
+            example: true,
+            description: "true closes the ticket; false returns it to IN_PROGRESS.",
+          },
+          message: {
+            type: "string",
+            maxLength: 4000,
+            nullable: true,
+            example: "Solusi berhasil setelah alignment ulang.",
+          },
+        },
+      },
+      TicketResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: { $ref: "#/components/schemas/EscalationTicket" },
+        },
+      },
+      ReportSource: {
+        type: "object",
+        properties: {
+          ticketId: { type: "string", format: "uuid", nullable: true },
+          sessionId: { type: "string", format: "uuid", nullable: true },
+        },
+      },
+      ReportAttachment: {
+        type: "object",
+        properties: {
+          filename: { type: "string", example: "defect.png" },
+          contentType: { type: "string", example: "image/png" },
+        },
+      },
+      ReportSummaryResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              summary: {
+                type: "string",
+                example: "Ringkasan Ticket Helpdesk\n\nMasalah utama:\n- Printer tidak terdeteksi jaringan.",
+              },
+              source: { $ref: "#/components/schemas/ReportSource" },
+              attachments: {
+                type: "array",
+                items: { $ref: "#/components/schemas/ReportAttachment" },
+              },
+            },
+          },
+        },
+      },
+      SendEmailResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              sent: { type: "boolean", example: true },
+              emailLog: { $ref: "#/components/schemas/EmailLog" },
+              summary: { type: "string" },
+              source: { $ref: "#/components/schemas/ReportSource" },
+              mailpitUrl: { type: "string", nullable: true, example: "http://localhost:8025" },
+              attachments: {
+                type: "array",
+                items: { $ref: "#/components/schemas/ReportAttachment" },
+              },
+              error: { type: "string", nullable: true, example: "connect ECONNREFUSED 127.0.0.1:1025" },
+            },
+          },
         },
       },
       KnowledgeCandidate: {
@@ -327,7 +464,7 @@ export const openApiSpec = {
     "/auth/login": {
       post: {
         tags: ["Auth"],
-        summary: "Login with employee ID or email",
+        summary: "Login with employee ID",
         security: [],
         requestBody: {
           required: true,
@@ -1067,6 +1204,132 @@ export const openApiSpec = {
         },
       },
     },
+    "/admin/ml/status": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get local ML model status",
+        description: "Requires ADMIN role. Returns model versions, metrics, and accumulated training example counts.",
+        responses: {
+          200: {
+            description: "ML model status.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        models: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              name: { type: "string", example: "category-classifier" },
+                              version: { type: "integer", example: 1 },
+                              sampleCount: { type: "integer", example: 42 },
+                              metrics: { type: "object", nullable: true },
+                              trainedAt: { type: "string", format: "date-time" },
+                            },
+                          },
+                        },
+                        accumulatedExamples: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              task: { type: "string", example: "category" },
+                              count: { type: "integer", example: 8 },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/ml/train": {
+      post: {
+        tags: ["Admin"],
+        summary: "Retrain local ML classifiers",
+        description: "Requires ADMIN role. Retrains category, intent, and priority classifiers from seed examples plus accumulated examples.",
+        responses: {
+          200: { description: "Training result for category, intent, and priority models." },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/ml/predict": {
+      post: {
+        tags: ["Admin"],
+        summary: "Run debug ML prediction",
+        description: "Requires ADMIN role. Runs intent, category, priority, and escalation predictors for the given text.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["text"],
+                properties: {
+                  text: {
+                    type: "string",
+                    example: "Printer tidak terdeteksi di jaringan produksi setelah pindah subnet.",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Prediction result.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        text: { type: "string" },
+                        intent: { type: "object" },
+                        category: { type: "object" },
+                        priority: { type: "object" },
+                        escalation: { type: "object" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "text is required." },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/ml/learn-ticket/{id}": {
+      post: {
+        tags: ["Admin"],
+        summary: "Create learning output from a resolved ticket",
+        description: "Requires ADMIN role. Converts a resolved ticket into learning/knowledge output when eligible.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        responses: {
+          200: { description: "Learning output created from ticket." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
     "/tickets/escalate": {
       post: {
         tags: ["Tickets"],
@@ -1088,7 +1351,14 @@ export const openApiSpec = {
           },
         },
         responses: {
-          201: { description: "Escalation ticket created." },
+          201: {
+            description: "Escalation ticket created.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
           401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
@@ -1107,7 +1377,26 @@ export const openApiSpec = {
           { name: "q", in: "query", schema: { type: "string" }, description: "Search summary or user." },
         ],
         responses: {
-          200: { description: "Paginated ticket list." },
+          200: {
+            description: "Paginated ticket list.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        items: { type: "array", items: { $ref: "#/components/schemas/EscalationTicket" } },
+                        pagination: { $ref: "#/components/schemas/Pagination" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           403: { $ref: "#/components/responses/Forbidden" },
         },
       },
@@ -1143,7 +1432,73 @@ export const openApiSpec = {
         description: "Requires USER role. Only returns tickets owned by the user.",
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
-          200: { description: "Ticket detail." },
+          200: {
+            description: "Ticket detail.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/tickets/my/{id}/comments": {
+      post: {
+        tags: ["Tickets"],
+        summary: "Reply to current user's ticket",
+        description: "Requires USER role. Operator can add follow-up information only to their own ticket.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TicketCommentRequest" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Comment created and updated ticket returned.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
+          400: { description: "Message is required or too long." },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/tickets/my/{id}/resolution": {
+      patch: {
+        tags: ["Tickets"],
+        summary: "Confirm ticket resolution as operator",
+        description:
+          "Requires USER role. Use resolved=true when the helpdesk solution works; use resolved=false when the issue still needs follow-up.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TicketResolutionRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Resolution confirmation saved and updated ticket returned.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
+          400: { description: "resolved must be true or false." },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
         },
@@ -1156,7 +1511,44 @@ export const openApiSpec = {
         description: "Requires ADMIN or HELPDESK role.",
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
-          200: { description: "Ticket detail." },
+          200: {
+            description: "Ticket detail with read-only session.messages and comments thread.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
+          403: { $ref: "#/components/responses/Forbidden" },
+          404: { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
+    "/tickets/{id}/comments": {
+      post: {
+        tags: ["Tickets"],
+        summary: "Reply to a ticket as helpdesk or admin",
+        description:
+          "Requires ADMIN or HELPDESK role. Adds a web-based reply for the operator. If the ticket is OPEN, it becomes IN_PROGRESS.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TicketCommentRequest" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Comment created and updated ticket returned.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
+          400: { description: "Message is required or too long." },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
         },
@@ -1183,7 +1575,14 @@ export const openApiSpec = {
           },
         },
         responses: {
-          200: { description: "Ticket status updated." },
+          200: {
+            description: "Ticket status updated.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TicketResponse" },
+              },
+            },
+          },
           403: { $ref: "#/components/responses/Forbidden" },
           404: { $ref: "#/components/responses/NotFound" },
         },
@@ -1208,7 +1607,14 @@ export const openApiSpec = {
           },
         },
         responses: {
-          200: { description: "Summary generated." },
+          200: {
+            description: "Summary generated.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ReportSummaryResponse" },
+              },
+            },
+          },
           401: { $ref: "#/components/responses/Unauthorized" },
         },
       },
@@ -1229,13 +1635,25 @@ export const openApiSpec = {
                   ticketId: { type: "string", format: "uuid" },
                   recipientEmail: { type: "string", format: "email", example: "helpdesk@epson.local" },
                   subject: { type: "string", example: "Epson AI Helpdesk Summary Report" },
+                  summary: {
+                    type: "string",
+                    nullable: true,
+                    description: "Optional edited summary text. Backend generates one from sessionId/ticketId if omitted.",
+                  },
                 },
               },
             },
           },
         },
         responses: {
-          200: { description: "Email send result and EmailLog." },
+          200: {
+            description: "Email send result, EmailLog, source ids, optional Mailpit URL, and attachment metadata.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SendEmailResponse" },
+              },
+            },
+          },
           401: { $ref: "#/components/responses/Unauthorized" },
         },
       },

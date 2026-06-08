@@ -9,6 +9,7 @@ import LandingView from '../modules/auth/views/LandingView.vue'
 import RegisterView from '../modules/auth/views/RegisterView.vue'
 import ForbiddenView from '../modules/auth/views/ForbiddenView.vue'
 import PendingApprovalView from '../modules/auth/views/PendingApprovalView.vue'
+import NotFoundView from '../modules/auth/views/NotFoundView.vue'
 
 import ChatView from '../modules/chat/views/ChatView.vue'
 import UserDashboardView from '../modules/dashboard/views/UserDashboardView.vue'
@@ -63,7 +64,7 @@ const routes = [
     ],
   },
 
-  { path: '/:pathMatch(.*)*', redirect: '/login' },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { public: true } },
 ]
 
 const router = createRouter({

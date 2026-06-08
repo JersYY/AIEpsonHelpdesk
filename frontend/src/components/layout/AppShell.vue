@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth.store'
 import { usePreferencesStore } from '../../stores/preferences.store'
 import { useChatStore } from '../../stores/chat.store'
+import ConfirmModal from '../common/ConfirmModal.vue'
 
 import '../../assets/styles/shell.css'
 
@@ -19,6 +20,9 @@ const userMenuOpen = ref(false)
 const menuFor = ref(null)
 const renaming = ref(null)
 const renameText = ref('')
+const deleteThreadId = ref(null)
+const isNarrow = ref(false)
+let narrowQuery = null
 
 // ---- Resizable sidebar ----
 const MIN_WIDTH = 240
@@ -31,6 +35,7 @@ const sidebarWidth = ref(
 const resizing = ref(false)
 
 const startResize = (event) => {
+  if (prefs.compactSidebar) return
   resizing.value = true
   event.preventDefault()
   document.body.style.cursor = 'col-resize'
@@ -55,7 +60,9 @@ const stopResize = () => {
   window.removeEventListener('mouseup', stopResize)
 }
 
-const sidebarStyle = computed(() => ({ width: `${sidebarWidth.value}px` }))
+const isRailCollapsed = computed(() => prefs.compactSidebar && !isNarrow.value)
+const sidebarStyle = computed(() => (isRailCollapsed.value ? null : { width: `${sidebarWidth.value}px` }))
+const sidebarToggleTitle = computed(() => (isRailCollapsed.value ? 'Buka sidebar' : 'Buka menu'))
 
 const role = computed(() => auth.role)
 
@@ -100,6 +107,15 @@ const toggleTheme = () => {
   prefs.setTheme(isDark.value ? 'light' : 'dark')
 }
 
+const toggleSidebar = () => {
+  if (isNarrow.value) {
+    drawerOpen.value = !drawerOpen.value
+    return
+  }
+  closeMenus()
+  prefs.toggleCompactSidebar()
+}
+
 const isActive = (to) => route.path === to || route.path.startsWith(to + '/')
 
 const go = (to) => {
@@ -136,7 +152,13 @@ const confirmRename = async (thread) => {
 
 const doDelete = async (id) => {
   menuFor.value = null
-  if (confirm('Delete this chat?')) await chat.deleteSession(id)
+  deleteThreadId.value = id
+}
+
+const confirmDeleteThread = async () => {
+  if (!deleteThreadId.value) return
+  await chat.deleteSession(deleteThreadId.value)
+  deleteThreadId.value = null
 }
 
 const doArchive = async (id) => {
@@ -155,18 +177,26 @@ const closeMenus = () => {
   menuFor.value = null
 }
 
+const syncNarrow = () => {
+  isNarrow.value = narrowQuery?.matches ?? false
+}
+
 onMounted(async () => {
+  narrowQuery = window.matchMedia('(max-width: 860px)')
+  syncNarrow()
+  narrowQuery.addEventListener('change', syncNarrow)
   if (showChat.value) chat.loadHistory()
 })
 
 onBeforeUnmount(() => {
+  narrowQuery?.removeEventListener('change', syncNarrow)
   window.removeEventListener('mousemove', onResize)
   window.removeEventListener('mouseup', stopResize)
 })
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'sidebar-collapsed': isRailCollapsed, 'drawer-open': drawerOpen }">
     <div
       class="drawer-backdrop"
       :class="{ show: drawerOpen }"
@@ -175,7 +205,7 @@ onBeforeUnmount(() => {
 
     <aside
       class="app-sidebar"
-      :class="{ open: drawerOpen, compact: prefs.compactSidebar, resizing }"
+      :class="{ open: drawerOpen, collapsed: isRailCollapsed, resizing }"
       :style="sidebarStyle"
     >
       <div class="sidebar-header">
@@ -184,13 +214,16 @@ onBeforeUnmount(() => {
           Epson Helpdesk
           <span>AI Assistant</span>
         </div>
+        <button class="sidebar-collapse-btn" :title="isRailCollapsed ? 'Buka sidebar' : 'Tutup sidebar'" @click="toggleSidebar">
+          <i :class="isRailCollapsed ? 'fa-solid fa-table-columns' : 'fa-solid fa-angles-left'"></i>
+        </button>
       </div>
 
       <div v-if="showChat" class="sidebar-actions">
-        <button class="btn btn-primary" @click="newChat">
+        <button class="btn btn-primary" title="New Chat" @click="newChat">
           <i class="fa-solid fa-plus"></i> New Chat
         </button>
-        <button class="btn btn-ghost" @click="tempChat">
+        <button class="btn btn-ghost" title="Temporary Chat" @click="tempChat">
           <i class="fa-solid fa-user-secret"></i> Temporary Chat
         </button>
       </div>
@@ -202,6 +235,7 @@ onBeforeUnmount(() => {
             :key="link.to"
             class="nav-item"
             :class="{ active: isActive(link.to) }"
+            :title="link.label"
             @click="go(link.to)"
           >
             <i :class="`fa-solid ${link.icon}`"></i>
@@ -217,6 +251,7 @@ onBeforeUnmount(() => {
               :key="thread.id"
               class="thread-item"
               :class="{ active: chat.sessionId === thread.id }"
+              :title="thread.title"
               @click="openThread(thread.id)"
             >
               <i class="fa-regular fa-message"></i>
@@ -261,7 +296,7 @@ onBeforeUnmount(() => {
 
       <div class="sidebar-footer">
         <div class="user-menu">
-          <button class="user-menu-trigger" @click.stop="userMenuOpen = !userMenuOpen">
+          <button class="user-menu-trigger" :title="auth.user?.name || 'User menu'" @click.stop="userMenuOpen = !userMenuOpen">
             <span class="user-avatar">{{ initials }}</span>
             <span class="user-meta">
               <strong>{{ auth.user?.name || 'User' }}</strong>
@@ -282,8 +317,8 @@ onBeforeUnmount(() => {
 
     <div class="app-main">
       <div class="app-bar">
-        <button class="hamburger" @click="drawerOpen = true">
-          <i class="fa-solid fa-bars"></i>
+        <button class="sidebar-toggle" :title="sidebarToggleTitle" @click="toggleSidebar">
+          <i class="fa-solid fa-bars-staggered"></i>
         </button>
         <div class="app-bar-spacer"></div>
         <button class="theme-switch" :title="isDark ? 'Mode terang' : 'Mode gelap'" @click="toggleTheme">
@@ -323,5 +358,16 @@ onBeforeUnmount(() => {
         </Transition>
       </div>
     </Transition>
+
+    <ConfirmModal
+      v-if="deleteThreadId"
+      title="Hapus chat ini?"
+      message="Riwayat percakapan akan dihapus dari daftar chat Anda. Tindakan ini tidak dapat dibatalkan."
+      confirm-label="Hapus"
+      variant="danger"
+      icon="fa-trash"
+      @cancel="deleteThreadId = null"
+      @confirm="confirmDeleteThread"
+    />
   </div>
 </template>

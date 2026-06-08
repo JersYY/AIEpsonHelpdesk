@@ -9,6 +9,7 @@ import ChatMessage from '../components/ChatMessage.vue'
 import ChatComposer from '../components/ChatComposer.vue'
 import RelatedContextPanel from '../components/RelatedContextPanel.vue'
 import TypingIndicator from '../components/TypingIndicator.vue'
+import ConfirmModal from '../../../components/common/ConfirmModal.vue'
 
 import '../../../assets/styles/chat-shell.css'
 
@@ -21,6 +22,7 @@ const showEscalate = ref(false)
 const escalating = ref(false)
 const createdTicket = ref(null)
 const priority = ref('MEDIUM')
+const notice = ref(null)
 
 const CONFIDENCE_THRESHOLD = 0.6
 
@@ -75,6 +77,9 @@ const send = async ({ message, imageId = null, imagePreview = null }) => {
 const onFeedback = ({ message, rating }) => chat.sendFeedback(message, rating)
 const onRegenerate = (message) => chat.regenerate(message.id)
 const onEdit = ({ message, text }) => chat.editMessage(message.id, text)
+const showNotice = (title, message, variant = 'danger', icon = 'fa-triangle-exclamation') => {
+  notice.value = { title, message, variant, icon }
+}
 
 const submitEscalation = async () => {
   if (!chat.sessionId) return
@@ -84,7 +89,7 @@ const submitEscalation = async () => {
     createdTicket.value = res.data.data
     showEscalate.value = false
   } catch {
-    alert('Gagal membuat ticket')
+    showNotice('Gagal membuat ticket', 'Ticket belum bisa dibuat. Coba ulangi beberapa saat lagi atau pastikan koneksi backend aktif.')
   } finally {
     escalating.value = false
   }
@@ -194,6 +199,18 @@ const submitEscalation = async () => {
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      v-if="notice"
+      :title="notice.title"
+      :message="notice.message"
+      confirm-label="Mengerti"
+      :variant="notice.variant"
+      :icon="notice.icon"
+      :show-cancel="false"
+      @cancel="notice = null"
+      @confirm="notice = null"
+    />
   </div>
 </template>
 
