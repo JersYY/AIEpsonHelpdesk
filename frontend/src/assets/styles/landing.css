@@ -38,7 +38,7 @@
   right: -10vw;
   width: 50vw;
   height: 50vh;
-  background: radial-gradient(ellipse at center, rgba(170, 59, 255, 0.08) 0%, transparent 60%);
+  background: radial-gradient(ellipse at center, rgba(11, 99, 206, 0.08) 0%, transparent 60%);
   border-radius: 50%;
   filter: blur(80px);
   z-index: 0;
@@ -51,7 +51,7 @@
 }
 
 [data-theme="dark"] .landing-page::after {
-  background: radial-gradient(ellipse at center, rgba(192, 132, 252, 0.15) 0%, transparent 60%);
+  background: radial-gradient(ellipse at center, rgba(79, 156, 255, 0.15) 0%, transparent 60%);
 }
 
 @keyframes float-gradient-1 {
@@ -180,7 +180,7 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; height: 4px;
-  background: linear-gradient(90deg, var(--color-primary), #aa3bff);
+  background: linear-gradient(90deg, var(--color-primary), #4f9cff);
 }
 
 .landing-menu-head {
@@ -341,7 +341,7 @@
   text-transform: uppercase;
   margin-bottom: 16px;
   display: inline-block;
-  background: linear-gradient(90deg, var(--color-primary), #aa3bff);
+  background: linear-gradient(90deg, var(--color-primary), #4f9cff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -416,7 +416,7 @@
   content: '';
   position: absolute;
   inset: -15px;
-  background: linear-gradient(135deg, var(--color-primary), #aa3bff);
+  background: linear-gradient(135deg, var(--color-primary), #4f9cff);
   filter: blur(30px);
   opacity: 0.15;
   border-radius: 30px;
@@ -689,7 +689,7 @@
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--color-primary), #aa3bff);
+  background: linear-gradient(90deg, var(--color-primary), #4f9cff);
   opacity: 0;
   transition: opacity 0.3s ease;
 }

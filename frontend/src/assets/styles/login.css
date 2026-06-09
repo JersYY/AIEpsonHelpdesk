@@ -42,7 +42,7 @@
   left: -5vw;
   width: 40vw;
   height: 40vh;
-  background: radial-gradient(ellipse at center, rgba(170, 59, 255, 0.08) 0%, transparent 60%);
+  background: radial-gradient(ellipse at center, rgba(11, 99, 206, 0.08) 0%, transparent 60%);
   border-radius: 50%;
   filter: blur(80px);
   z-index: 0;
@@ -55,7 +55,7 @@
 }
 
 [data-theme="dark"] .login-page::after, [data-theme="dark"] .locked-page::after {
-  background: radial-gradient(ellipse at center, rgba(192, 132, 252, 0.1) 0%, transparent 60%);
+  background: radial-gradient(ellipse at center, rgba(79, 156, 255, 0.1) 0%, transparent 60%);
 }
 
 @keyframes float-gradient-login-1 {
@@ -144,7 +144,7 @@
   content: '';
   position: absolute;
   inset: -15px;
-  background: linear-gradient(135deg, var(--color-primary), #aa3bff);
+  background: linear-gradient(135deg, var(--color-primary), #4f9cff);
   filter: blur(40px);
   opacity: 0.15;
   border-radius: 40px;

@@ -71,7 +71,7 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--color-primary), #aa3bff, transparent);
+  background: linear-gradient(90deg, transparent, var(--color-primary), #4f9cff, transparent);
   opacity: 0.7;
 }
 
@@ -93,7 +93,7 @@
   right: -150px;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(170, 59, 255, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(11, 99, 206, 0.05) 0%, transparent 70%);
   pointer-events: none;
 }
 

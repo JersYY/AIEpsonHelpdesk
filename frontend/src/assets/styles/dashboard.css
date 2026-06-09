@@ -44,7 +44,7 @@ body {
     left: -10vw;
     width: 50vw;
     height: 50vh;
-    background: radial-gradient(circle, rgba(170, 59, 255, 0.05) 0%, transparent 60%);
+    background: radial-gradient(circle, rgba(11, 99, 206, 0.05) 0%, transparent 60%);
     border-radius: 50%;
     filter: blur(80px);
     z-index: 0;
