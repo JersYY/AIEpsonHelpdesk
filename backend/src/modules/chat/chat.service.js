@@ -236,10 +236,10 @@ export const ChatService = {
     };
   },
 
-  async getHistory(user) {
-    // Exclude temporary, archived, and soft-deleted sessions from history.
+  async getHistory(user, archived = false) {
+    // Exclude temporary and soft-deleted sessions. Filter by archived state.
     return prisma.chatSession.findMany({
-      where: visibleScope(user, { isTemporary: false, archived: false }),
+      where: visibleScope(user, { isTemporary: false, archived }),
       orderBy: { updatedAt: "desc" },
       include: {
         category: true,

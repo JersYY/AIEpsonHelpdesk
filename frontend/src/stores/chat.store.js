@@ -20,6 +20,7 @@ const toChatMessage = (message = {}, fallbackImage = null) => ({
 export const useChatStore = defineStore('chat', {
   state: () => ({
     history: [],
+    archivedHistory: [],
     messages: [],
     sessionId: null,
     contexts: [],
@@ -52,6 +53,16 @@ export const useChatStore = defineStore('chat', {
       try {
         const { data } = await chatService.getHistory()
         this.history = data.data || []
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async loadArchivedHistory() {
+      this.loading = true
+      try {
+        const { data } = await chatService.getHistory(true)
+        this.archivedHistory = data.data || []
       } finally {
         this.loading = false
       }
@@ -181,6 +192,12 @@ export const useChatStore = defineStore('chat', {
       await chatService.archiveSession(id)
       this.history = this.history.filter((s) => s.id !== id)
       if (this.sessionId === id) this.startNewChat()
+    },
+
+    async restoreSession(id) {
+      await chatService.restoreSession(id)
+      this.archivedHistory = this.archivedHistory.filter((s) => s.id !== id)
+      await this.loadHistory()
     },
   },
 })

@@ -10,10 +10,10 @@ export default {
         )
     },
 
-    async getHistory() {
+    async getHistory(archived = false) {
 
         return await api.get(
-            '/chat/history'
+            `/chat/history${archived ? '?archived=true' : ''}`
         )
     },
 

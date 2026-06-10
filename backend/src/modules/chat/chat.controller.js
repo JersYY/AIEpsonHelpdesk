@@ -7,7 +7,8 @@ export const sendMessage = asyncHandler(async (req, res) => {
 });
 
 export const getHistory = asyncHandler(async (req, res) => {
-  return sendSuccess(res, await ChatService.getHistory(req.user));
+  const isArchived = req.query.archived === "true";
+  return sendSuccess(res, await ChatService.getHistory(req.user, isArchived));
 });
 
 export const getSession = asyncHandler(async (req, res) => {

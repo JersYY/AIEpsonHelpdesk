@@ -1,66 +1,73 @@
 import { GeminiProvider } from "./providers/gemini.provider.js";
 import { IntentService } from "./intent.service.js";
 
-const contextTitle = (context) => context?.documentTitle || context?.document?.title || "knowledge base";
+const contextTitle = (context) =>
+  context?.documentTitle || context?.document?.title || "knowledge base";
 
-const SAFETY_NOTE = "Jika tercium bau terbakar, ada asap, kabel rusak, percikan api, atau cairan masuk, segera cabut kabel daya, jangan membongkar perangkat, dan hubungi teknisi/servis resmi sebelum mencoba menyalakannya kembali.";
+const SAFETY_NOTE =
+  "Jika tercium bau terbakar, ada asap, kabel rusak, percikan api, atau cairan masuk, segera cabut kabel daya, jangan membongkar perangkat, dan hubungi teknisi/servis resmi sebelum mencoba menyalakannya kembali.";
 
-const buildGreetingAnswer = () => [
-  "Silakan jelaskan kendala pada printer, scanner, jaringan, firmware, atau perangkat Epson lain.",
-  "Sertakan gejala, lokasi perangkat, kode error jika ada, dan langkah yang sudah dicoba agar pengecekan lebih tepat.",
-].join(" ");
+const buildGreetingAnswer = () =>
+  [
+    "Silakan jelaskan kendala pada printer, scanner, jaringan, firmware, atau perangkat Epson lain.",
+    "Sertakan gejala, lokasi perangkat, kode error jika ada, dan langkah yang sudah dicoba agar pengecekan lebih tepat.",
+  ].join(" ");
 
-const buildOutOfScopeAnswer = () => [
-  "Maaf, sepertinya pertanyaan ini di luar topik perangkat Epson.",
-  "Saya bisa membantu troubleshooting printer, scanner, jaringan, firmware, hardware, atau part Epson.",
-  "Silakan jelaskan kendala perangkat Anda, dan saya bantu cek langkahnya.",
-].join(" ");
+const buildOutOfScopeAnswer = () =>
+  [
+    "Maaf, sepertinya pertanyaan ini di luar topik perangkat Epson.",
+    "Saya bisa membantu troubleshooting printer, scanner, jaringan, firmware, hardware, atau part Epson.",
+    "Silakan jelaskan kendala perangkat Anda, dan saya bantu cek langkahnya.",
+  ].join(" ");
 
 // Langkah aman umum untuk printer mati / tidak menyala.
-const buildPowerIssueAnswer = () => [
-  "Baik, saya bantu cek printer Epson Anda yang tidak menyala. Silakan coba langkah awal berikut:",
-  "1. Pastikan kabel daya terpasang rapat pada printer dan stopkontak.",
-  "2. Coba gunakan stopkontak lain yang dipastikan berfungsi.",
-  "3. Jika menggunakan terminal listrik atau stabilizer, sambungkan printer langsung ke stopkontak.",
-  "4. Cabut kabel daya selama 1 menit, lalu sambungkan kembali dan tekan tombol power.",
-  "5. Periksa apakah ada lampu indikator, suara, atau layar yang menyala.",
-  "",
-  "Mohon informasikan:",
-  "1. Model printer Epson Anda.",
-  "2. Apakah tidak ada lampu sama sekali, atau ada lampu yang berkedip?",
-  "3. Apakah sebelumnya terjadi mati listrik, terkena cairan, atau tercium bau terbakar?",
-  "",
-  SAFETY_NOTE,
-].join("\n");
+const buildPowerIssueAnswer = () =>
+  [
+    "Baik, saya bantu cek printer Epson Anda yang tidak menyala. Silakan coba langkah awal berikut:",
+    "1. Pastikan kabel daya terpasang rapat pada printer dan stopkontak.",
+    "2. Coba gunakan stopkontak lain yang dipastikan berfungsi.",
+    "3. Jika menggunakan terminal listrik atau stabilizer, sambungkan printer langsung ke stopkontak.",
+    "4. Cabut kabel daya selama 1 menit, lalu sambungkan kembali dan tekan tombol power.",
+    "5. Periksa apakah ada lampu indikator, suara, atau layar yang menyala.",
+    "",
+    "Mohon informasikan:",
+    "1. Model printer Epson Anda.",
+    "2. Apakah tidak ada lampu sama sekali, atau ada lampu yang berkedip?",
+    "3. Apakah sebelumnya terjadi mati listrik, terkena cairan, atau tercium bau terbakar?",
+    "",
+    SAFETY_NOTE,
+  ].join("\n");
 
-const buildPaperJamAnswer = () => [
-  "Baik, saya bantu cek masalah kertas macet pada printer Epson Anda. Silakan coba langkah awal berikut:",
-  "1. Matikan printer terlebih dahulu agar aman sebelum mengeluarkan kertas.",
-  "2. Buka penutup printer dan tarik kertas yang macet perlahan searah jalur keluar kertas, hindari menyobeknya.",
-  "3. Pastikan tidak ada sisa potongan kertas, klip, atau benda asing di jalur kertas.",
-  "4. Periksa kondisi roller dan tray kertas, lalu muat ulang kertas dengan rapi sesuai batas maksimal.",
-  "5. Nyalakan kembali printer dan coba cetak satu halaman uji.",
-  "",
-  "Mohon informasikan:",
-  "1. Model printer Epson Anda.",
-  "2. Apakah muncul kode error atau lampu indikator tertentu saat macet?",
-  "3. Di bagian mana kertas tersangkut (input, dalam printer, atau output)?",
-].join("\n");
+const buildPaperJamAnswer = () =>
+  [
+    "Baik, saya bantu cek masalah kertas macet pada printer Epson Anda. Silakan coba langkah awal berikut:",
+    "1. Matikan printer terlebih dahulu agar aman sebelum mengeluarkan kertas.",
+    "2. Buka penutup printer dan tarik kertas yang macet perlahan searah jalur keluar kertas, hindari menyobeknya.",
+    "3. Pastikan tidak ada sisa potongan kertas, klip, atau benda asing di jalur kertas.",
+    "4. Periksa kondisi roller dan tray kertas, lalu muat ulang kertas dengan rapi sesuai batas maksimal.",
+    "5. Nyalakan kembali printer dan coba cetak satu halaman uji.",
+    "",
+    "Mohon informasikan:",
+    "1. Model printer Epson Anda.",
+    "2. Apakah muncul kode error atau lampu indikator tertentu saat macet?",
+    "3. Di bagian mana kertas tersangkut (input, dalam printer, atau output)?",
+  ].join("\n");
 
-const buildGenericTroubleshootingAnswer = (message) => [
-  `Baik, saya bantu cek kendala "${message}" pada perangkat Epson Anda. Silakan mulai dari langkah awal yang aman berikut:`,
-  "1. Pastikan perangkat dalam kondisi menyala dan kabel daya terpasang dengan benar.",
-  "2. Periksa lampu indikator, layar, atau pesan error yang muncul.",
-  "3. Coba matikan perangkat sekitar 1 menit, lalu nyalakan kembali (restart).",
-  "4. Pastikan kabel data/jaringan dan konsumabel (tinta, kertas) terpasang dengan baik.",
-  "",
-  "Mohon informasikan:",
-  "1. Model perangkat Epson Anda.",
-  "2. Kode error atau gejala persis yang muncul (mis. lampu berkedip, bunyi, hasil cetak).",
-  "3. Tindakan apa yang sudah Anda coba sebelumnya?",
-  "",
-  SAFETY_NOTE,
-].join("\n");
+const buildGenericTroubleshootingAnswer = (message) =>
+  [
+    `Baik, saya bantu cek kendala "${message}" pada perangkat Epson Anda. Silakan mulai dari langkah awal yang aman berikut:`,
+    "1. Pastikan perangkat dalam kondisi menyala dan kabel daya terpasang dengan benar.",
+    "2. Periksa lampu indikator, layar, atau pesan error yang muncul.",
+    "3. Coba matikan perangkat sekitar 1 menit, lalu nyalakan kembali (restart).",
+    "4. Pastikan kabel data/jaringan dan konsumabel (tinta, kertas) terpasang dengan baik.",
+    "",
+    "Mohon informasikan:",
+    "1. Model perangkat Epson Anda.",
+    "2. Kode error atau gejala persis yang muncul (mis. lampu berkedip, bunyi, hasil cetak).",
+    "3. Tindakan apa yang sudah Anda coba sebelumnya?",
+    "",
+    SAFETY_NOTE,
+  ].join("\n");
 
 const buildImageFallbackAnswer = (message = "") => {
   if (isImageIdentityQuestion(message)) {
@@ -80,18 +87,40 @@ const buildImageFallbackAnswer = (message = "") => {
 
 const isImageIdentityQuestion = (message = "") => {
   const text = String(message || "").toLowerCase();
-  return ["tipe", "model", "seri", "jenis", "apa"].some((word) => text.includes(word));
+  return ["tipe", "model", "seri", "jenis", "apa"].some((word) =>
+    text.includes(word),
+  );
 };
 
 const isPowerIssue = (message = "") => {
   const text = message.toLowerCase();
-  const powerWords = ["mati", "tidak menyala", "tidak nyala", "tdk nyala", "gak nyala", "ga nyala", "tidak hidup", "tidak bisa nyala", "tidak mau nyala", "no power", "won't turn on", "tidak menyala sama sekali"];
+  const powerWords = [
+    "mati",
+    "tidak menyala",
+    "tidak nyala",
+    "tdk nyala",
+    "gak nyala",
+    "ga nyala",
+    "tidak hidup",
+    "tidak bisa nyala",
+    "tidak mau nyala",
+    "no power",
+    "won't turn on",
+    "tidak menyala sama sekali",
+  ];
   return powerWords.some((word) => text.includes(word));
 };
 
 const isPaperJam = (message = "") => {
   const text = message.toLowerCase();
-  const jamWords = ["kertas macet", "macet", "paper jam", "nyangkut", "tersangkut", "kertas nyangkut"];
+  const jamWords = [
+    "kertas macet",
+    "macet",
+    "paper jam",
+    "nyangkut",
+    "tersangkut",
+    "kertas nyangkut",
+  ];
   return jamWords.some((word) => text.includes(word));
 };
 
@@ -100,7 +129,11 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   const title = contextTitle(topContext);
   const text = String(topContext?.chunkText || "").toLowerCase();
 
-  if (text.includes("banding") || text.includes("nozzle") || text.includes("missing dots")) {
+  if (
+    text.includes("banding") ||
+    text.includes("nozzle") ||
+    text.includes("missing dots")
+  ) {
     return [
       "Untuk kasus print quality seperti ini, mulai dari pengecekan dasar dulu.",
       "Cek hasil nozzle check, status ink supply, kebersihan platen, dan alignment media.",
@@ -109,7 +142,11 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
     ].join("\n");
   }
 
-  if (text.includes("adf") || text.includes("scanner") || text.includes("jam")) {
+  if (
+    text.includes("adf") ||
+    text.includes("scanner") ||
+    text.includes("jam")
+  ) {
     return [
       "Untuk masalah ADF atau scanner, hentikan job dulu lalu keluarkan kertas mengikuti arah feed.",
       "Setelah itu cek separation pad, pickup roller, debu di paper path, dan lakukan calibration scan.",
@@ -117,7 +154,11 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
     ].join("\n");
   }
 
-  if (text.includes("network") || text.includes("ip address") || text.includes("subnet")) {
+  if (
+    text.includes("network") ||
+    text.includes("ip address") ||
+    text.includes("subnet")
+  ) {
     return [
       "Untuk printer yang tidak terdeteksi di jaringan, cek dari sisi koneksi fisik dan konfigurasi IP dulu.",
       "Pastikan link light menyala, IP address benar, subnet/gateway/DNS sesuai, dan print server queue tidak bermasalah.",
@@ -139,10 +180,17 @@ const buildSafeFallbackAnswer = (message = "") => {
   if (isPowerIssue(cleanMessage)) return buildPowerIssueAnswer();
   if (isPaperJam(cleanMessage)) return buildPaperJamAnswer();
 
-  return buildGenericTroubleshootingAnswer(cleanMessage || "perangkat Epson Anda");
+  return buildGenericTroubleshootingAnswer(
+    cleanMessage || "perangkat Epson Anda",
+  );
 };
 
-const mockAnswer = ({ message, contexts, intent: providedIntent = null, imagePath = null }) => {
+const mockAnswer = ({
+  message,
+  contexts,
+  intent: providedIntent = null,
+  imagePath = null,
+}) => {
   const arithmetic = IntentService.calculateSimpleArithmetic(message);
   if (arithmetic) {
     return `Hasilnya ${arithmetic.result}. Jika ada pertanyaan troubleshooting Epson, jelaskan gejala mesin atau defect yang muncul agar saya bisa cek knowledge base.`;
@@ -172,9 +220,18 @@ const mockAnswer = ({ message, contexts, intent: providedIntent = null, imagePat
 };
 
 export const GenerationService = {
-  async generateAnswer({ message, prompt, contexts = [], imagePath = null, intent = null }) {
+  async generateAnswer({
+    message,
+    prompt,
+    contexts = [],
+    imagePath = null,
+    intent = null,
+  }) {
     try {
-      const geminiText = await GeminiProvider.generateAnswer({ prompt, imagePath });
+      const geminiText = await GeminiProvider.generateAnswer({
+        prompt,
+        imagePath,
+      });
       if (geminiText) {
         return {
           provider: "gemini",
@@ -183,6 +240,12 @@ export const GenerationService = {
       }
     } catch (error) {
       // TODO(ai-engineer): replace silent fallback with structured internal AI logs.
+      console.error("[gemini] generate failed:", {
+        message: error.message,
+        status: error.status,
+        details: error.details,
+      });
+      
       return {
         provider: "mock",
         text: mockAnswer({ message, contexts, intent, imagePath }),
