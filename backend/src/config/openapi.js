@@ -649,6 +649,15 @@ export const openApiSpec = {
       get: {
         tags: ["Chat"],
         summary: "Get chat history",
+        parameters: [
+          {
+            name: "archived",
+            in: "query",
+            required: false,
+            schema: { type: "boolean" },
+            description: "If true, returns only archived chat sessions. Default is false (active sessions only)."
+          }
+        ],
         responses: {
           200: { description: "Chat session list." },
           401: { $ref: "#/components/responses/Unauthorized" },
