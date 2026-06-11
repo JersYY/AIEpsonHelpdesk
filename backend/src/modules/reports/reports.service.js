@@ -5,6 +5,7 @@ import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 import { buildConversationSummary } from "../../utils/summary.js";
 import { requireFields, toInt } from "../../utils/validators.js";
+import { readStoredFile } from "../files/storage.service.js";
 
 const getTransport = () => {
   return nodemailer.createTransport({
@@ -30,12 +31,23 @@ const sessionWithMessageImages = {
   },
 };
 
-const fileAttachmentsFromMessages = (messages = []) => messages
+const fileAttachmentMetadataFromMessages = (messages = []) => messages
   .filter((message) => message.image)
   .map((message) => ({
     filename: message.image.originalName || message.image.storedName,
-    path: message.image.storagePath,
     contentType: message.image.mimeType,
+  }));
+
+const fileAttachmentsFromMessages = async (messages = []) => Promise.all(messages
+  .filter((message) => message.image)
+  .map(async (message) => {
+    const storedFile = await readStoredFile(message.image.storagePath);
+
+    return {
+      filename: message.image.originalName || message.image.storedName,
+      content: storedFile.buffer,
+      contentType: message.image.mimeType || storedFile.contentType,
+    };
   }));
 
 const getReportSource = async (user, payload) => {
@@ -97,7 +109,7 @@ export const ReportsService = {
     return {
       summary: reportSource.summary,
       source: reportSource.source,
-      attachments: fileAttachmentsFromMessages(reportSource.messages).map((attachment) => ({
+      attachments: fileAttachmentMetadataFromMessages(reportSource.messages).map((attachment) => ({
         filename: attachment.filename,
         contentType: attachment.contentType,
       })),
@@ -111,9 +123,11 @@ export const ReportsService = {
     const summaryResult = await getReportSource(user, payload);
     const subject = payload.subject || "Epson AI Helpdesk Summary Report";
     const emailSummary = String(payload.summary || "").trim() || summaryResult.summary;
-    const attachments = fileAttachmentsFromMessages(summaryResult.messages);
+    const attachmentMetadata = fileAttachmentMetadataFromMessages(summaryResult.messages);
 
     try {
+      const attachments = await fileAttachmentsFromMessages(summaryResult.messages);
+
       await getTransport().sendMail({
         from: env.SMTP_FROM,
         to: payload.recipientEmail,
@@ -137,10 +151,7 @@ export const ReportsService = {
         summary: emailSummary,
         source: summaryResult.source,
         mailpitUrl: env.MAILPIT_WEB_URL || null,
-        attachments: attachments.map((attachment) => ({
-          filename: attachment.filename,
-          contentType: attachment.contentType,
-        })),
+        attachments: attachmentMetadata,
       };
     } catch (error) {
       const emailLog = await prisma.emailLog.create({
@@ -158,10 +169,7 @@ export const ReportsService = {
         summary: emailSummary,
         source: summaryResult.source,
         mailpitUrl: env.MAILPIT_WEB_URL || null,
-        attachments: attachments.map((attachment) => ({
-          filename: attachment.filename,
-          contentType: attachment.contentType,
-        })),
+        attachments: attachmentMetadata,
         error: error.message,
       };
     }

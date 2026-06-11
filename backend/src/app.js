@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import path from "path";
 import swaggerUi from "swagger-ui-express";
 
 import { env } from "./config/env.js";
@@ -17,7 +16,9 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import categoryRoutes from "./modules/categories/categories.routes.js";
 import chatRoutes from "./modules/chat/chat.routes.js";
+import { serveUploadedFile } from "./modules/files/files.controller.js";
 import fileRoutes from "./modules/files/files.routes.js";
+import { localUploadDir } from "./modules/files/storage.service.js";
 import healthRoutes from "./modules/health/health.routes.js";
 import knowledgeRoutes from "./modules/knowledge/knowledge.routes.js";
 import knowledgePublicRoutes from "./modules/knowledge/knowledge.public.routes.js";
@@ -75,7 +76,8 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
-app.use("/uploads", express.static(path.resolve("uploads")));
+app.use("/uploads", express.static(localUploadDir()));
+app.get("/uploads/:storedName", serveUploadedFile);
 
 app.get("/api/docs.json", (req, res) => {
   res.json(openApiSpec);

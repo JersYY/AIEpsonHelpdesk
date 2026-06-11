@@ -89,9 +89,9 @@ Catatan:
 
 ## 4. Penyesuaian Backend Sebelum Deploy
 
-Backend saat ini memakai Express biasa dengan `src/server.js` untuk lokal. Untuk Vercel Functions, perlu entrypoint serverless yang meng-export app tanpa `listen`.
+Backend tetap memakai `src/server.js` untuk lokal. Entrypoint serverless sudah tersedia di `backend/api/index.js` dan meng-export app tanpa `listen`.
 
-Target perubahan:
+Struktur yang dipakai:
 
 ```txt
 backend/
@@ -102,7 +102,7 @@ backend/
     server.js
 ```
 
-Isi konsep `api/index.js`:
+Isi `api/index.js`:
 
 ```js
 import app from "../src/app.js";
@@ -116,7 +116,7 @@ Tetap gunakan `src/server.js` untuk lokal:
 npm run dev
 ```
 
-Tambahkan `vercel.json` backend:
+`backend/vercel.json` sudah mengarahkan semua request ke function Express:
 
 ```json
 {
@@ -132,22 +132,20 @@ Tambahkan `vercel.json` backend:
 
 ## 5. Penyesuaian Upload Gambar
 
-Masalah saat ini:
+Upload gambar sudah mendukung dua mode:
 
 ```txt
-multer -> folder uploads lokal
+local development -> multer diskStorage -> folder uploads lokal
+production dengan Supabase env -> multer memoryStorage -> Supabase Storage
 ```
 
-Untuk Vercel, ubah menjadi:
+Jika `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, dan `SUPABASE_STORAGE_BUCKET` terisi, backend otomatis menyimpan upload ke Supabase Storage. Jika tidak, backend tetap memakai folder lokal `uploads/`.
 
-```txt
-multer memoryStorage -> Supabase Storage -> simpan path/url ke UploadedFile.storagePath
-```
-
-Perilaku yang harus dipertahankan:
+Perilaku yang dipertahankan:
 
 - `POST /api/files/upload` tetap menerima multipart `file`.
-- `GET /api/files/:id` tetap bisa membuka lampiran.
+- `GET /api/files/:id` tetap mengembalikan metadata lampiran.
+- URL gambar lama `/uploads/:storedName` tetap bisa dipakai frontend untuk menampilkan gambar.
 - Chat/ticket tetap menampilkan gambar.
 - Metadata file tetap tersimpan di tabel `UploadedFile`.
 

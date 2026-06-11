@@ -1,7 +1,6 @@
-import fs from "fs/promises";
-
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
+import { deleteStoredFile, readStoredFile, storeUploadedImage } from "./storage.service.js";
 
 const canAccessFile = (user, file) => user.role !== "USER" || file.userId === user.id;
 
@@ -11,14 +10,16 @@ export const FilesService = {
       throw new ApiError(400, "File is required");
     }
 
+    const storedFile = await storeUploadedImage(userId, file);
+
     return prisma.uploadedFile.create({
       data: {
         userId,
         originalName: file.originalname,
-        storedName: file.filename,
+        storedName: storedFile.storedName,
         mimeType: file.mimetype,
         size: file.size,
-        storagePath: file.path,
+        storagePath: storedFile.storagePath,
       },
     });
   },
@@ -41,16 +42,26 @@ export const FilesService = {
     return file;
   },
 
+  async getFileByStoredName(storedName) {
+    const file = await prisma.uploadedFile.findUnique({
+      where: { storedName },
+    });
+
+    if (!file) throw new ApiError(404, "File not found");
+
+    const storedFile = await readStoredFile(file.storagePath);
+    return {
+      file,
+      buffer: storedFile.buffer,
+      contentType: file.mimeType || storedFile.contentType,
+    };
+  },
+
   async deleteFile(user, id) {
     const file = await this.getFile(user, id);
 
     await prisma.uploadedFile.delete({ where: { id } });
-
-    try {
-      await fs.unlink(file.storagePath);
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
+    await deleteStoredFile(file.storagePath);
 
     return { id, deleted: true };
   },

@@ -1,23 +1,31 @@
 import fs from "fs";
-import path from "path";
 
 import multer from "multer";
 
 import { ApiError } from "../../utils/apiError.js";
+import { isSupabaseStorageConfigured, localUploadDir } from "./storage.service.js";
 
-const uploadDir = path.resolve("uploads");
-fs.mkdirSync(uploadDir, { recursive: true });
+const uploadDir = localUploadDir();
+const useSupabaseStorage = isSupabaseStorageConfigured();
+
+if (!useSupabaseStorage) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    cb(null, uniqueName);
-  },
-});
+const storage = useSupabaseStorage
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => cb(null, uploadDir),
+      filename: (req, file, cb) => {
+        const ext = file.originalname.includes(".")
+          ? `.${file.originalname.split(".").pop().toLowerCase()}`
+          : "";
+        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        cb(null, uniqueName);
+      },
+    });
 
 export const uploadImage = multer({
   storage,

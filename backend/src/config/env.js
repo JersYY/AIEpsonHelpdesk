@@ -43,4 +43,8 @@ export const env = {
   SMTP_FROM: process.env.SMTP_FROM || "helpdesk@epson.local",
   MAILPIT_WEB_URL: process.env.MAILPIT_WEB_URL || "http://localhost:8025",
   CORS_ORIGIN: process.env.CORS_ORIGIN,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_STORAGE_BUCKET: process.env.SUPABASE_STORAGE_BUCKET,
+  UPLOAD_DIR: process.env.UPLOAD_DIR || "uploads",
 };

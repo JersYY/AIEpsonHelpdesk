@@ -1,7 +1,7 @@
-import fs from "fs/promises";
 import path from "path";
 
 import { aiConfig } from "../../../config/ai.js";
+import { readStoredFile } from "../../files/storage.service.js";
 
 const GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -78,14 +78,13 @@ export const GeminiProvider = {
     const parts = [{ text: prompt }];
 
     if (imagePath) {
-      const absolutePath = path.resolve(imagePath);
-      const mimeType = mimeFromExtension(absolutePath);
+      const storedFile = await readStoredFile(imagePath);
+      const mimeType = storedFile.contentType || mimeFromExtension(imagePath);
       if (mimeType) {
-        const imageBuffer = await fs.readFile(absolutePath);
         parts.push({
           inline_data: {
             mime_type: mimeType,
-            data: imageBuffer.toString("base64"),
+            data: storedFile.buffer.toString("base64"),
           },
         });
       }
