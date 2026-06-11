@@ -39,7 +39,7 @@ onMounted(load)
 <template>
   <div class="content-pad">
     <h1 class="page-title">Email Logs</h1>
-    <p class="page-subtitle">Riwayat pengiriman email ringkasan ticket.</p>
+    <p class="page-subtitle">Riwayat notifikasi email opsional. Solusi dan follow-up operator tetap dilakukan dari thread ticket di web.</p>
 
     <div class="filter-bar">
       <select v-model="statusFilter" class="input" style="max-width: 160px;" @change="load">

@@ -7,6 +7,12 @@ export const AdminService = {
   topIssues() {
     return api.get('/admin/top-issues')
   },
+  aiSettings() {
+    return api.get('/admin/ai-settings')
+  },
+  updateAiSettings(payload) {
+    return api.patch('/admin/ai-settings', payload)
+  },
   accounts(params) {
     return api.get('/admin/accounts', { params })
   },

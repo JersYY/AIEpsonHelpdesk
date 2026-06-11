@@ -1,5 +1,8 @@
-import { GeminiProvider } from "./providers/gemini.provider.js";
+import { aiConfig } from "../../config/ai.js";
 import { IntentService } from "./intent.service.js";
+import { DeepSeekProvider } from "./providers/deepseek.provider.js";
+import { GeminiProvider } from "./providers/gemini.provider.js";
+import { AiSettingsService } from "./settings.service.js";
 
 const contextTitle = (context) =>
   context?.documentTitle || context?.document?.title || "knowledge base";
@@ -226,36 +229,48 @@ export const GenerationService = {
     contexts = [],
     imagePath = null,
     intent = null,
+    settings = null,
   }) {
+    const resolvedSettings = settings || await AiSettingsService.getSettings();
+    const runtimeConfig = AiSettingsService.runtimeConfig(resolvedSettings);
+    const provider = imagePath ? "gemini_vision" : "deepseek";
+
     try {
-      const geminiText = await GeminiProvider.generateAnswer({
-        prompt,
-        imagePath,
-      });
-      if (geminiText) {
+      const aiText = provider === "deepseek"
+        ? await DeepSeekProvider.generateAnswer({ prompt, imagePath, runtimeConfig })
+        : await GeminiProvider.generateAnswer({
+            prompt,
+            imagePath,
+            model: aiConfig.gemini.visionModel,
+          });
+
+      if (aiText) {
         return {
-          provider: "gemini",
-          text: geminiText,
+          provider,
+          text: aiText,
+          mode: resolvedSettings.mode,
         };
       }
     } catch (error) {
       // TODO(ai-engineer): replace silent fallback with structured internal AI logs.
-      console.error("[gemini] generate failed:", {
+      console.error(`[${provider}] generate failed:`, {
         message: error.message,
         status: error.status,
         details: error.details,
       });
-      
+
       return {
         provider: "mock",
         text: mockAnswer({ message, contexts, intent, imagePath }),
         error: error.message,
+        mode: resolvedSettings.mode,
       };
     }
 
     return {
       provider: "mock",
       text: mockAnswer({ message, contexts, intent, imagePath }),
+      mode: resolvedSettings.mode,
     };
   },
 };

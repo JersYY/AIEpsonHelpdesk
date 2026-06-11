@@ -300,7 +300,7 @@ Expected response contains:
 }
 ```
 
-Jika `GEMINI_API_KEY` kosong, `provider` akan bernilai `mock`.
+Jika `DEEPSEEK_API_KEY` kosong atau request DeepSeek gagal, `provider` akan bernilai `mock`.
 
 ## 9. Continue Chat
 

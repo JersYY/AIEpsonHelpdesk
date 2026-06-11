@@ -633,7 +633,8 @@ export const openApiSpec = {
                           type: "array",
                           items: { $ref: "#/components/schemas/KnowledgeChunkContext" },
                         },
-                        provider: { type: "string", enum: ["gemini", "mock"] },
+                        provider: { type: "string", enum: ["deepseek", "gemini_vision", "mock"] },
+                        aiMode: { type: "string", enum: ["hemat", "normal"] },
                       },
                     },
                   },
@@ -1149,6 +1150,40 @@ export const openApiSpec = {
         description: "Requires ADMIN role.",
         responses: {
           200: { description: "Top issue categories." },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
+    "/admin/ai-settings": {
+      get: {
+        tags: ["Admin"],
+        summary: "Get AI runtime settings",
+        description: "Requires ADMIN role. Returns DeepSeek runtime mode and keyword RAG status.",
+        responses: {
+          200: { description: "AI settings." },
+          403: { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+      patch: {
+        tags: ["Admin"],
+        summary: "Update AI response mode",
+        description: "Requires ADMIN role. Provider routing is automatic: text/RAG uses DeepSeek, image attachments use Gemini Vision. Mode hemat limits output tokens/retries; normal allows a more complete answer.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  mode: { type: "string", enum: ["hemat", "normal"], example: "hemat" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "AI settings updated." },
+          400: { description: "Invalid mode." },
           403: { $ref: "#/components/responses/Forbidden" },
         },
       },

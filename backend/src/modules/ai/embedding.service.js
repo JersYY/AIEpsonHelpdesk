@@ -43,7 +43,7 @@ const warnEmbeddingSkipped = (message) => {
 
 export const EmbeddingService = {
   isConfigured() {
-    return Boolean(aiConfig.gemini.apiKey);
+    return aiConfig.rag.mode !== "keyword" && Boolean(aiConfig.gemini.apiKey);
   },
 
   async embedText(text, options = {}) {

@@ -18,20 +18,21 @@ const waitForMinimumResponseTime = async (startedAt) => {
 };
 
 const confidenceScore = ({ provider, contexts }) => {
+  const isLiveProvider = provider && provider !== "mock";
   const topScore = contexts
     .map((context) => Number(context.score))
     .find((score) => Number.isFinite(score));
 
   if (Number.isFinite(topScore)) {
-    const providerBoost = provider === "gemini" ? 0.1 : 0;
+    const providerBoost = isLiveProvider ? 0.1 : 0;
     return Number(Math.min(0.95, Math.max(0.4, topScore + providerBoost)).toFixed(2));
   }
 
   if (contexts.length) {
-    return provider === "gemini" ? 0.74 : 0.62;
+    return isLiveProvider ? 0.74 : 0.62;
   }
 
-  return provider === "gemini" ? 0.55 : 0.45;
+  return isLiveProvider ? 0.55 : 0.45;
 };
 
 const isKnowledgeGrounded = (contexts = []) => contexts.length > 0;
@@ -153,9 +154,12 @@ export const ChatService = {
           messageText: answer.text,
           confidenceScore: confidenceScore({ provider: answer.provider, contexts }),
           knowledgeGrounded: isKnowledgeGrounded(contexts),
+          aiProvider: answer.provider,
+          aiMode: answer.mode,
         },
         contexts,
         provider: answer.provider,
+        aiMode: answer.mode,
         temporary: true,
         prediction: buildPrediction(categoryPrediction, escalation),
       };
@@ -215,6 +219,8 @@ export const ChatService = {
         messageText: answer.text,
         confidenceScore: score,
         responseTimeMs,
+        aiProvider: answer.provider,
+        aiMode: answer.mode,
         predictedCategoryId: categoryPrediction?.categoryId || null,
         predictedConfidence: categoryPrediction?.confidence || null,
       },
@@ -231,6 +237,7 @@ export const ChatService = {
       aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
       contexts,
       provider: answer.provider,
+      aiMode: answer.mode,
       temporary: false,
       prediction: buildPrediction(categoryPrediction, escalation),
     };
@@ -436,6 +443,8 @@ export const ChatService = {
         messageText: answer.text,
         confidenceScore: score,
         responseTimeMs,
+        aiProvider: answer.provider,
+        aiMode: answer.mode,
         predictedCategoryId: categoryPrediction?.categoryId || null,
         predictedConfidence: categoryPrediction?.confidence || null,
       },
@@ -451,6 +460,7 @@ export const ChatService = {
       aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
       contexts,
       provider: answer.provider,
+      aiMode: answer.mode,
       prediction: buildPrediction(categoryPrediction, escalation),
     };
   },

@@ -110,6 +110,15 @@ Catatan: delete category akan ditolak `409` jika masih dipakai chat session, kno
 | GET | `/api/admin/analytics` | ADMIN | - |
 | GET | `/api/admin/top-issues` | ADMIN | - |
 
+### Admin AI Settings
+
+| Method | Route | Auth/Role | Body |
+|---|---|---|---|
+| GET | `/api/admin/ai-settings` | ADMIN | - |
+| PATCH | `/api/admin/ai-settings` | ADMIN | `{ "mode": "hemat" }` atau `{ "mode": "normal" }` |
+
+Catatan: provider dipilih otomatis. Pertanyaan teks dan RAG knowledge base memakai DeepSeek; pesan dengan lampiran gambar memakai Gemini Vision. Admin hanya mengatur mode `hemat/normal`.
+
 ### Admin Account Approval
 
 | Method | Route | Auth/Role | Body |
@@ -203,7 +212,8 @@ Authorization: Bearer <token>
     "userMessage": { "sender": "USER", "messageText": "Printer output has missing dots after maintenance" },
     "aiMessage": { "sender": "AI", "confidenceScore": 0.82, "knowledgeGrounded": false, "responseTimeMs": 210 },
     "contexts": [],
-    "provider": "mock"
+    "provider": "deepseek",
+    "aiMode": "hemat"
   }
 }
 ```

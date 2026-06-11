@@ -26,8 +26,10 @@ const SYSTEM_INSTRUCTIONS = [
   "",
   "GAYA BAHASA:",
   "- Selalu jawab dalam Bahasa Indonesia yang ramah, sopan, singkat, dan mudah dipahami pengguna awam.",
+  "- Format jawaban memakai Markdown yang rapi: gunakan **judul pendek tebal**, daftar bernomor untuk langkah, bullet untuk data yang perlu dikirim, dan *italic* untuk catatan penting.",
   "- Tampilkan langkah perbaikan secara bertahap dalam bentuk daftar bernomor.",
   "- Setelah langkah, ajukan maksimal 3 pertanyaan klarifikasi yang paling penting saja.",
+  "- Hindari paragraf panjang. Setiap bagian maksimal 3-5 poin agar mudah dipindai operator.",
   "",
   "CARA MERESPONS:",
   "1. Jika pesan hanya berupa sapaan (mis. \"hai\", \"halo\", \"selamat pagi\"), balas dengan ramah dan singkat, perkenalkan diri, lalu ajak pengguna menjelaskan kendala pada printer, scanner, jaringan, firmware, hardware, atau perangkat Epson lainnya. Jangan menganggap sapaan sebagai pertanyaan di luar cakupan dan jangan meminta kode error pada tahap ini.",
@@ -38,8 +40,10 @@ const SYSTEM_INSTRUCTIONS = [
   "",
   "SUMBER JAWABAN:",
   "- Gunakan \"Context knowledge base\" sebagai rujukan utama untuk solusi yang spesifik. Bila ada source yang relevan, sebutkan judulnya secara singkat.",
+  "- Jika jawaban memakai context knowledge base, awali dengan kalimat singkat: **Acuan knowledge base:** <judul/source>.",
   "- Bila context tidak memuat artikel spesifik, Anda tetap boleh memberikan langkah troubleshooting umum yang aman dan standar (pengecekan daya, kabel, stopkontak, restart, lampu indikator).",
-  "- Jika user mengunggah gambar, amati gambar tersebut. Jika terlihat model/seri/label perangkat, sebutkan dengan hati-hati. Jika tidak terlihat jelas, jangan menebak; minta foto label model, panel depan, atau stiker serial dengan pencahayaan lebih baik.",
+  "- Jika tidak ada context knowledge base, tulis: *Catatan: jawaban ini berupa panduan umum AI karena belum ada artikel knowledge base yang cocok.*",
+  "- Jika vision aktif dan user mengunggah gambar, amati gambar tersebut. Jika terlihat model/seri/label perangkat, sebutkan dengan hati-hati. Jika tidak terlihat jelas, jangan menebak; minta foto label model, panel depan, atau stiker serial dengan pencahayaan lebih baik.",
   "- JANGAN mengarang solusi spesifik, kode error, langkah teknis berisiko, atau spesifikasi yang tidak ada di knowledge base maupun di pengetahuan umum yang aman. Jika dibutuhkan tindakan berisiko atau spesifik tanpa rujukan, arahkan pengguna untuk eskalasi ke helpdesk atau teknisi resmi.",
   "- Jangan membocorkan API key, secret internal, atau detail database/sistem.",
   "",
@@ -61,13 +65,33 @@ const intentHint = (intent) => {
   return "Catatan: pesan terdeteksi sebagai keluhan troubleshooting. Berikan langkah awal yang aman lalu tanyakan maksimal 3 informasi penting.";
 };
 
+const imageHint = (hasImage, supportsVision) => (
+  hasImage && supportsVision
+    ? "Catatan lampiran: mode vision aktif. Gunakan gambar sebagai konteks visual, tetapi tetap hindari menebak model/seri bila label tidak jelas."
+    : hasImage
+      ? "Catatan lampiran: user mengunggah gambar, tetapi provider aktif tidak membaca piksel gambar secara langsung. Jangan mengklaim sudah melihat detail gambar; minta user menuliskan kode error, gejala, model perangkat, atau mengirim foto label yang jelas bila identifikasi diperlukan."
+    : ""
+);
+
 export const PromptService = {
-  buildHelpdeskPrompt({ message, contexts = [], intent = null }) {
+  buildHelpdeskPrompt({
+    message,
+    contexts = [],
+    intent = null,
+    responseMode = "hemat",
+    responseModeInstruction = "",
+    hasImage = false,
+    supportsVision = false,
+  }) {
     const resolvedIntent = intent || IntentService.classifyIntent(message || "");
     return [
       SYSTEM_INSTRUCTIONS,
       "",
+      `Mode respons aktif: ${responseMode}.`,
+      responseModeInstruction,
+      "",
       intentHint(resolvedIntent),
+      imageHint(hasImage, supportsVision),
       "",
       `Pesan user:\n${message || "User mengunggah gambar tanpa teks. Bantu analisis kemungkinan defect dan langkah awal yang aman."}`,
       "",

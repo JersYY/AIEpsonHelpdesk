@@ -1,6 +1,7 @@
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 import { toInt } from "../../utils/validators.js";
+import { AiSettingsService } from "../ai/settings.service.js";
 
 const ratio = (value, total) => (total ? Number((value / total).toFixed(4)) : 0);
 
@@ -51,6 +52,14 @@ const combineCategoryCounts = async (limit = 10) => {
 };
 
 export const AdminService = {
+  getAiSettings() {
+    return AiSettingsService.getSettings({ force: true });
+  },
+
+  updateAiSettings(payload = {}) {
+    return AiSettingsService.updateSettings(payload);
+  },
+
   async getAccounts(query = {}) {
     const status = String(query.status || "PENDING").toUpperCase();
     const allowed = ["PENDING", "ACTIVE", "REJECTED", "ALL"];

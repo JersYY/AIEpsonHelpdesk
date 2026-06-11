@@ -26,7 +26,7 @@ const findChunksWithoutEmbedding = async (limit) => prisma.$queryRaw`
 
 const main = async () => {
   if (!EmbeddingService.isConfigured()) {
-    console.log("GEMINI_API_KEY kosong. Backfill embedding dilewati.");
+    console.log("Embedding dinonaktifkan. Gunakan RAG_MODE=semantic/hybrid dan isi GEMINI_API_KEY jika ingin backfill semantic embedding.");
     return;
   }
 

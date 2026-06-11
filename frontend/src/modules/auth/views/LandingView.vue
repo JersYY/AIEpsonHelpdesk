@@ -205,8 +205,8 @@ const go = (path) => {
           </article>
           <article class="landing-info-card">
             <i class="fa-solid fa-envelope"></i>
-            <h3>Ringkasan siap dikirim</h3>
-            <p>Summary ticket bisa dikirim melalui email development Mailpit dan dicatat pada Email Logs untuk audit.</p>
+            <h3>Notifikasi opsional</h3>
+            <p>Ringkasan ticket dapat dikirim ke email sebagai arsip atau notifikasi, sementara tindak lanjut tetap berjalan di thread ticket web.</p>
           </article>
           <article class="landing-info-card">
             <i class="fa-solid fa-chart-line"></i>

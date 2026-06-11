@@ -2,6 +2,14 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { sendSuccess } from "../../utils/response.js";
 import { AdminService } from "./admin.service.js";
 
+export const getAiSettings = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await AdminService.getAiSettings());
+});
+
+export const updateAiSettings = asyncHandler(async (req, res) => {
+  return sendSuccess(res, await AdminService.updateAiSettings(req.body));
+});
+
 export const getChatLogs = asyncHandler(async (req, res) => {
   return sendSuccess(res, await AdminService.getChatLogs(req.query));
 });

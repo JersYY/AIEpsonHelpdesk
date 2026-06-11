@@ -135,9 +135,13 @@ export const RetrievalService = {
     }
 
     const normalizedLimit = normalizeLimit(limit);
-    const semanticRows = await semanticSearch(query, normalizedLimit);
-    if (semanticRows.length && IntentService.hasGroundedContext(query, semanticRows)) {
-      return semanticRows;
+    const shouldUseSemantic = ["semantic", "hybrid"].includes(aiConfig.rag.mode);
+
+    if (shouldUseSemantic) {
+      const semanticRows = await semanticSearch(query, normalizedLimit);
+      if (semanticRows.length && IntentService.hasGroundedContext(query, semanticRows)) {
+        return semanticRows;
+      }
     }
 
     const keywordRows = await keywordSearch(query, normalizedLimit);

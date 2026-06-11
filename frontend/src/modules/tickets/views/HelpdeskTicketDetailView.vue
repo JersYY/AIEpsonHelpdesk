@@ -77,7 +77,7 @@ const sendEmail = async () => {
   if (!recipient.value.trim()) {
     notice.value = {
       title: 'Email penerima belum diisi',
-      message: 'Masukkan alamat email tujuan sebelum report ticket dikirim.',
+      message: 'Masukkan alamat email tujuan bila ringkasan ticket perlu dikirim sebagai notifikasi atau arsip.',
       variant: 'warning',
       icon: 'fa-envelope-circle-check',
     }
@@ -254,26 +254,26 @@ onMounted(load)
         :enter="{ opacity: 1, y: 0, transition: { duration: 260, delay: 120 } }"
         class="card"
       >
-        <h3 style="margin-bottom: 12px;">Report &amp; Email</h3>
+        <h3 style="margin-bottom: 6px;">Dokumentasi &amp; Notifikasi</h3>
         <button class="btn btn-ghost" style="margin-bottom: 12px;" @click="generateSummary">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Summary
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Ringkasan
         </button>
 
         <textarea
           v-model="summary"
           class="input summary-editor"
           rows="10"
-          placeholder="Generate atau edit ringkasan ticket sebelum dikirim."
+          placeholder="Generate atau edit ringkasan ticket sebelum dikirim sebagai notifikasi opsional."
         ></textarea>
 
         <label class="muted" style="font-size: 12px;">Email penerima</label>
-        <input v-model="recipient" class="input" placeholder="lead@epson.local" style="margin: 4px 0 10px;" />
+        <input v-model="recipient" class="input" placeholder="Masukkan Email" style="margin: 4px 0 10px;" />
 
         <label class="muted" style="font-size: 12px;">Subjek</label>
         <input v-model="subject" class="input" style="margin: 4px 0 14px;" />
 
-        <button class="btn btn-primary" :disabled="sending" @click="sendEmail">
-          <i class="fa-solid fa-paper-plane"></i> Kirim Email
+        <button class="btn btn-ghost" :disabled="sending" @click="sendEmail">
+          <i class="fa-solid fa-paper-plane"></i> Kirim Ringkasan
         </button>
 
         <div
@@ -287,9 +287,9 @@ onMounted(load)
           <div class="email-result">
             <i :class="emailResult.sent ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark'"></i>
             <div>
-              <strong>{{ emailResult.sent ? 'Email terkirim' : 'Gagal mengirim email' }}</strong>
+              <strong>{{ emailResult.sent ? 'Ringkasan terkirim' : 'Gagal mengirim ringkasan' }}</strong>
               <p>
-                {{ emailResult.sent ? 'Cek Mailpit atau buka riwayat email dari web.' : 'Pastikan SMTP/Mailpit aktif lalu coba lagi.' }}
+                {{ emailResult.sent ? 'Notifikasi tersimpan di Email Logs. Lanjutkan komunikasi solusi melalui thread ticket.' : 'Pastikan SMTP/Mailpit aktif lalu coba lagi.' }}
               </p>
             </div>
           </div>

@@ -13,6 +13,8 @@ const toChatMessage = (message = {}, fallbackImage = null) => ({
   sender: message.sender,
   messageText: message.messageText || '',
   image: uploadImageUrl(message.image) || normalizeMediaUrl(fallbackImage),
+  aiProvider: message.aiProvider || null,
+  aiMode: message.aiMode || null,
   feedback: message.feedback || null,
   showAiSourceNote: false,
 })
@@ -110,6 +112,8 @@ export const useChatStore = defineStore('chat', {
           id: payload.aiMessage?.id || null,
           sender: 'AI',
           messageText: payload.aiMessage?.messageText || 'No response',
+          aiProvider: payload.aiMessage?.aiProvider || payload.provider || null,
+          aiMode: payload.aiMessage?.aiMode || payload.aiMode || null,
           feedback: null,
           knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
         }, this.contexts))
@@ -132,6 +136,8 @@ export const useChatStore = defineStore('chat', {
             id: payload.aiMessage.id,
             sender: 'AI',
             messageText: payload.aiMessage.messageText,
+            aiProvider: payload.aiMessage?.aiProvider || payload.provider || null,
+            aiMode: payload.aiMessage?.aiMode || payload.aiMode || null,
             feedback: null,
             knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
           }, nextContexts))
@@ -160,6 +166,8 @@ export const useChatStore = defineStore('chat', {
           id: payload.aiMessage.id,
           sender: 'AI',
           messageText: payload.aiMessage.messageText,
+          aiProvider: payload.aiMessage?.aiProvider || payload.provider || null,
+          aiMode: payload.aiMessage?.aiMode || payload.aiMode || null,
           feedback: null,
           knowledgeGrounded: payload.aiMessage?.knowledgeGrounded,
         }, nextContexts))

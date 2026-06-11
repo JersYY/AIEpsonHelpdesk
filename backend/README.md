@@ -7,9 +7,9 @@ Backend API modular untuk sistem helpdesk internal Epson berbasis AI/RAG. API in
 - Auth JWT dengan bcrypt password hashing dan approval akun operator.
 - Role `USER`, `ADMIN`, dan `HELPDESK`; register publik hanya membuat `USER` berstatus `PENDING`.
 - Dashboard user dengan quick actions, popular issues berbasis chat/ticket 30 hari terakhir, dan recent activity.
-- Chat AI/RAG dengan Gemini, semantic search pgvector, fallback keyword search, dan mock response saat `GEMINI_API_KEY` kosong.
+- Chat AI/RAG dengan DeepSeek, keyword knowledge base search, mode hemat/normal, dan mock response saat `DEEPSEEK_API_KEY` kosong.
 - Upload gambar defect via multer: JPEG, PNG, WEBP, maksimal 5MB.
-- Admin CRUD knowledge base dengan auto chunking dan auto embedding untuk RAG.
+- Admin CRUD knowledge base dengan auto chunking untuk keyword RAG.
 - Admin chat logs dan analytics.
 - Escalation ticket, status workflow, dan thread balasan antara helpdesk/admin dengan operator.
 - Summary ticket/report multi-section yang menampilkan masalah utama, konteks, respons AI terakhir, tindak lanjut helpdesk, lampiran, dan riwayat singkat.
@@ -53,7 +53,8 @@ backend/
   uploads/
   API.md
   DEMO.md
-  RAG_GEMINI.md
+  RAG_DEEPSEEK.md
+  src/modules/ai/README.md
   README.md
 ```
 
@@ -65,15 +66,16 @@ Salin nilai yang dibutuhkan ke `.env`.
 PORT=4000
 DATABASE_URL=postgresql://user:pass@localhost:5432/epson_helpdesk
 JWT_SECRET=change-me
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_MODE=hemat
+DEEPSEEK_HEMAT_MAX_OUTPUT_TOKENS=450
+DEEPSEEK_NORMAL_MAX_OUTPUT_TOKENS=850
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.0-flash
-GEMINI_EMBEDDING_MODEL=gemini-embedding-001
-GEMINI_EMBEDDING_DIM=768
-GEMINI_TIMEOUT_MS=15000
-GEMINI_MAX_RETRIES=1
-GEMINI_TEMPERATURE=0.2
-GEMINI_MAX_OUTPUT_TOKENS=700
-GEMINI_SAFETY_THRESHOLD=BLOCK_MEDIUM_AND_ABOVE
+GEMINI_VISION_MODEL=gemini-2.0-flash
+RAG_MODE=keyword
 RAG_MIN_SIMILARITY=0.25
 SMTP_HOST=localhost
 SMTP_PORT=1025
@@ -110,13 +112,13 @@ npm run prisma:seed
 
 Seed command dikonfigurasi di `prisma.config.js` pada `migrations.seed` untuk kompatibilitas Prisma 7.
 
-8. Jika `GEMINI_API_KEY` sudah diisi, jalankan backfill embedding untuk data knowledge lama:
+8. Opsional: jalankan backfill embedding hanya jika Anda sengaja memakai `RAG_MODE=semantic` atau `RAG_MODE=hybrid`:
 
 ```bash
 npm run rag:backfill
 ```
 
-Jika `GEMINI_API_KEY` kosong, command backfill akan dilewati dan chat tetap berjalan dengan fallback keyword/mock.
+Jika `RAG_MODE=keyword`, command backfill akan dilewati dan chat tetap berjalan dengan keyword RAG + DeepSeek/mock fallback.
 
 ## Status Database Lokal
 
@@ -270,9 +272,9 @@ Ticket memiliki `comments[]` sebagai thread balasan web. Helpdesk/admin dapat me
 
 Panduan demo dari setup, login user, chat AI, upload defect image, escalation ticket, summary email, sampai admin/helpdesk workflow tersedia di `DEMO.md`.
 
-## Integrasi RAG Gemini
+## Integrasi RAG DeepSeek
 
-Panduan detail tersedia di `RAG_GEMINI.md`. Implementasi saat ini sudah mencakup Gemini generation, Gemini embeddings, semantic search pgvector, fallback keyword search, timeout, retry terbatas, safety settings, dan confidence score berbasis retrieval.
+Panduan detail tersedia di `RAG_DEEPSEEK.md` dan `src/modules/ai/README.md`. Implementasi saat ini memakai DeepSeek untuk generation, keyword RAG sebagai default full DeepSeek, mode hemat/normal dari admin, timeout, retry terbatas, dan confidence score berbasis retrieval.
 
 Kode AI/RAG disiapkan di:
 
@@ -285,23 +287,21 @@ Alur self-learning RAG:
 ```txt
 Admin membuat/mengubah KnowledgeDocument
   -> content dipecah menjadi KnowledgeChunk
-  -> Gemini membuat embedding RETRIEVAL_DOCUMENT
-  -> embedding disimpan ke pgvector
   -> user bertanya
-  -> query dibuat embedding RETRIEVAL_QUERY
-  -> pgvector mengambil chunk paling relevan
-  -> Gemini menjawab berdasarkan context
+  -> keyword search mengambil chunk knowledge paling relevan
+  -> DeepSeek menjawab berdasarkan context
 ```
 
 Catatan: "self-learning" di sini berarti AI otomatis memakai knowledge base baru setelah admin menambahkan atau memperbarui dokumen. Ini bukan fine-tuning/model training otomatis dari percakapan user, supaya data produksi tetap aman dan jawaban tetap bisa diaudit.
 
-Command penting:
+Endpoint admin:
 
-```bash
-npm run rag:backfill
+```txt
+GET /api/admin/ai-settings
+PATCH /api/admin/ai-settings { "mode": "hemat" | "normal" }
 ```
 
-Gunakan command tersebut setelah seed, import data lama, atau migration dari sistem sebelumnya agar semua `KnowledgeChunk` lama memiliki embedding.
+Provider dipilih otomatis: teks/RAG memakai DeepSeek, lampiran gambar memakai Gemini Vision. Gunakan `hemat` untuk penggunaan harian yang lebih murah dan `normal` saat butuh jawaban lebih lengkap.
 
 ## Mailpit
 
@@ -367,7 +367,7 @@ Atau jalankan:
 npx prisma db execute --file prisma/sql/enable_pgvector.sql
 ```
 
-Field embedding disimpan sebagai `Unsupported("vector(768)")?` pada model `KnowledgeChunk`. Dimensi default mengikuti `GEMINI_EMBEDDING_DIM=768`; jika dimensi diubah, migration SQL dan semua embedding lama harus dibuat ulang dengan dimensi yang sama.
+Field embedding tetap tersedia sebagai opsi legacy semantic RAG. Pada konfigurasi full DeepSeek, gunakan `RAG_MODE=keyword` agar sistem tidak memanggil embedding Gemini.
 
 Migration RAG menambahkan index HNSW:
 
@@ -378,4 +378,4 @@ USING hnsw ("embedding" vector_cosine_ops)
 WHERE "embedding" IS NOT NULL;
 ```
 
-Saat embedding belum tersedia, `GEMINI_API_KEY` kosong, atau pgvector error, RAG otomatis memakai fallback full-text/keyword search.
+Saat `RAG_MODE=keyword`, RAG langsung memakai full-text/keyword search dan tidak membutuhkan pgvector embedding.

@@ -133,6 +133,8 @@ model ChatMessage {
   imageId             String?
   confidenceScore     Float?
   responseTimeMs      Int?
+  aiProvider          String?
+  aiMode              String?
   feedback            FeedbackRating?
   feedbackComment     String?         @db.Text
   predictedCategoryId String?
@@ -249,6 +251,16 @@ model EmailLog {
 
   @@index([ticketId])
   @@index([status])
+}
+
+model AppSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 // Stores trained ML model artifacts (Naive Bayes params, TF-IDF vocab, etc.)

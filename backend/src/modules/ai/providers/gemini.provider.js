@@ -70,7 +70,7 @@ const requestJson = async (url, body) => {
 };
 
 export const GeminiProvider = {
-  async generateAnswer({ prompt, imagePath = null }) {
+  async generateAnswer({ prompt, imagePath = null, model = aiConfig.gemini.model }) {
     if (!aiConfig.gemini.apiKey) {
       return null;
     }
@@ -96,12 +96,12 @@ export const GeminiProvider = {
       maxOutputTokens: aiConfig.gemini.maxOutputTokens,
     };
 
-    if (supportsThinkingConfig(aiConfig.gemini.model)) {
+    if (supportsThinkingConfig(model)) {
       generationConfig.thinkingConfig = { thinkingBudget: 0 };
     }
 
     const data = await requestJson(
-      `${GEMINI_API_BASE_URL}/${modelPath(aiConfig.gemini.model)}:generateContent`,
+      `${GEMINI_API_BASE_URL}/${modelPath(model)}:generateContent`,
       {
         contents: [{ role: "user", parts }],
         generationConfig,
