@@ -76,7 +76,64 @@ export const buildConversationSummary = (messages = [], options = {}) => {
   ].join("\n");
 };
 
-export const titleFromMessage = (message = "Helpdesk Session") => {
-  const cleaned = message.replace(/\s+/g, " ").trim();
-  return cleaned.length > 60 ? `${cleaned.slice(0, 57)}...` : cleaned || "Helpdesk Session";
+const titleRules = [
+  {
+    title: "Printer tidak terdeteksi jaringan",
+    keywords: ["tidak terdeteksi", "tidak muncul di jaringan", "printer offline", "offline", "ip", "wi-fi", "wifi", "ethernet", "ping", "print server", "jaringan"],
+  },
+  {
+    title: "Hasil cetak bergaris",
+    keywords: ["bergaris", "banding", "missing dot", "missing dots", "nozzle"],
+  },
+  {
+    title: "Kualitas hasil cetak bermasalah",
+    keywords: ["hasil cetak", "warna", "pudar", "meleber", "smear", "tinta", "alignment"],
+  },
+  {
+    title: "Kendala scanner ADF",
+    keywords: ["adf", "scanner", "scan", "narik dua", "double feed", "kertas miring"],
+  },
+  {
+    title: "Kertas printer macet",
+    keywords: ["kertas macet", "paper jam", "nyangkut", "tersangkut"],
+  },
+  {
+    title: "Printer tidak menyala",
+    keywords: ["tidak menyala", "tidak nyala", "mati total", "tidak hidup", "no power"],
+  },
+  {
+    title: "Kendala firmware perangkat",
+    keywords: ["firmware", "update", "upgrade", "versi"],
+  },
+  {
+    title: "Kendala hardware atau part",
+    keywords: ["roller", "sensor", "cover", "tray", "spare part", "part", "hardware"],
+  },
+];
+
+const hasKeyword = (text, keywords = []) => keywords.some((keyword) => text.includes(keyword));
+
+const compactPromptTitle = (value = "") => {
+  let title = cleanText(value)
+    .replace(/[?!.]+$/g, "")
+    .replace(/\b(tolong|mohon|bantu|dong|ya|min|admin)\b/gi, " ")
+    .replace(/\b(printer|scanner|epson)\s+(saya|aku|kami|kita)\b/gi, " ")
+    .replace(/\b(saya|aku|kami|kita)\b/gi, " ");
+
+  title = cleanText(title);
+  if (!title) return "";
+  return title.charAt(0).toUpperCase() + title.slice(1);
+};
+
+export const titleFromMessage = (message = "", options = {}) => {
+  const cleaned = cleanText(message);
+  if (!cleaned && options.hasImage) return "Analisis lampiran gambar";
+
+  const lower = cleaned.toLowerCase();
+  const matchedRule = titleRules.find((rule) => hasKeyword(lower, rule.keywords));
+  if (matchedRule) return matchedRule.title;
+
+  const compactTitle = compactPromptTitle(cleaned);
+  if (compactTitle) return truncate(compactTitle, 52);
+  return options.hasImage ? "Analisis lampiran gambar" : "Percakapan helpdesk";
 };

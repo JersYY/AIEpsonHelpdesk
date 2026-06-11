@@ -182,7 +182,7 @@ export const ChatService = {
         data: {
           userId: user.id,
           categoryId: categoryId || null,
-          title: title || titleFromMessage(message),
+          title: title || titleFromMessage(message, { hasImage: Boolean(image) }),
         },
       });
     }
