@@ -2,6 +2,14 @@ import dotenv from "dotenv";
 
 dotenv.config({ quiet: true });
 
+const optionalEnv = (key) => {
+  const value = process.env[key]?.trim();
+  if (!value || ["disabled", "none", "null", "false"].includes(value.toLowerCase())) {
+    return undefined;
+  }
+  return value;
+};
+
 export const env = {
   PORT: process.env.PORT || 4000,
   DATABASE_URL: process.env.DATABASE_URL,
@@ -36,12 +44,12 @@ export const env = {
   RAG_MODE: process.env.RAG_MODE || "keyword",
   RAG_MIN_SIMILARITY: Number(process.env.RAG_MIN_SIMILARITY || 0.25),
   AI_MIN_RESPONSE_MS: Number(process.env.AI_MIN_RESPONSE_MS || 900),
-  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_HOST: optionalEnv("SMTP_HOST"),
   SMTP_PORT: Number(process.env.SMTP_PORT || 1025),
-  SMTP_USER: process.env.SMTP_USER,
-  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_USER: optionalEnv("SMTP_USER"),
+  SMTP_PASS: optionalEnv("SMTP_PASS"),
   SMTP_FROM: process.env.SMTP_FROM || "helpdesk@epson.local",
-  MAILPIT_WEB_URL: process.env.MAILPIT_WEB_URL ?? "http://localhost:8025",
+  MAILPIT_WEB_URL: optionalEnv("MAILPIT_WEB_URL") || (process.env.NODE_ENV === "production" ? "" : "http://localhost:8025"),
   CORS_ORIGIN: process.env.CORS_ORIGIN,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
