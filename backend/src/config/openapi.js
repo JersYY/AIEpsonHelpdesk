@@ -539,6 +539,46 @@ export const openApiSpec = {
         },
       },
     },
+    "/auth/password": {
+      patch: {
+        tags: ["Auth"],
+        summary: "Change current user password",
+        description: "Update password for the authenticated user. Requires the current password and matching new password confirmation.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["currentPassword", "newPassword", "confirmPassword"],
+                properties: {
+                  currentPassword: { type: "string", example: "Password123!" },
+                  newPassword: { type: "string", minLength: 8, example: "NewPassword123!" },
+                  confirmPassword: { type: "string", minLength: 8, example: "NewPassword123!" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Password updated successfully.",
+            content: {
+              "application/json": {
+                example: {
+                  success: true,
+                  data: {
+                    message: "Password updated successfully",
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Validation failed or current password is incorrect." },
+          401: { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
     "/dashboard": {
       get: {
         tags: ["Dashboard"],
