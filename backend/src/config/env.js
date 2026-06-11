@@ -41,7 +41,7 @@ export const env = {
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM || "helpdesk@epson.local",
-  MAILPIT_WEB_URL: process.env.MAILPIT_WEB_URL || "http://localhost:8025",
+  MAILPIT_WEB_URL: process.env.MAILPIT_WEB_URL ?? "http://localhost:8025",
   CORS_ORIGIN: process.env.CORS_ORIGIN,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
