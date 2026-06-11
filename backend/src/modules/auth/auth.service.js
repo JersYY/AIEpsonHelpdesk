@@ -129,6 +129,40 @@ export const AuthService = {
     return user;
   },
 
+  async changePassword(user, { currentPassword, newPassword, confirmPassword } = {}) {
+    const cleanCurrentPassword = String(currentPassword ?? "");
+    const cleanNewPassword = String(newPassword ?? "");
+    const cleanConfirmPassword = String(confirmPassword ?? "");
+
+    if (!cleanCurrentPassword || !cleanNewPassword || !cleanConfirmPassword) {
+      throw new ApiError(400, "Current password, new password, and confirmation are required");
+    }
+    if (cleanNewPassword.length < 8) {
+      throw new ApiError(400, "New password must be at least 8 characters");
+    }
+    if (cleanNewPassword !== cleanConfirmPassword) {
+      throw new ApiError(400, "New password confirmation does not match");
+    }
+
+    const account = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!account) {
+      throw new ApiError(404, "User not found");
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(cleanCurrentPassword, account.passwordHash);
+    if (!isCurrentPasswordValid) {
+      throw new ApiError(400, "Current password is incorrect");
+    }
+
+    const passwordHash = await bcrypt.hash(cleanNewPassword, 10);
+    await prisma.user.update({
+      where: { id: account.id },
+      data: { passwordHash },
+    });
+
+    return { message: "Password updated successfully" };
+  },
+
   logout() {
     return { message: "Logged out successfully" };
   },

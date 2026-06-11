@@ -7,6 +7,7 @@ import { usePreferencesStore } from '../../stores/preferences.store'
 import { useChatStore } from '../../stores/chat.store'
 import ConfirmModal from '../common/ConfirmModal.vue'
 import ArchivedChatsModal from '../../modules/chat/components/ArchivedChatsModal.vue'
+import ProfileModal from '../../modules/auth/components/ProfileModal.vue'
 
 const props = defineProps({
   drawerOpen: { type: Boolean, default: false },
@@ -23,6 +24,7 @@ const chat = useChatStore()
 
 const userMenuOpen = ref(false)
 const archiveModalOpen = ref(false)
+const profileModalOpen = ref(false)
 const menuFor = ref(null)
 const renaming = ref(null)
 const renameText = ref('')
@@ -294,6 +296,9 @@ onBeforeUnmount(() => {
               <span>{{ auth.user?.role }}</span>
             </div>
           </div>
+          <button @click="profileModalOpen = true; userMenuOpen = false">
+            <i class="fa-solid fa-user-gear"></i> Profile
+          </button>
           <button @click="archiveModalOpen = true; userMenuOpen = false">
             <i class="fa-solid fa-box-archive"></i> Riwayat Arsip
           </button>
@@ -319,5 +324,10 @@ onBeforeUnmount(() => {
   <ArchivedChatsModal
     v-if="archiveModalOpen"
     @close="archiveModalOpen = false"
+  />
+
+  <ProfileModal
+    v-if="profileModalOpen"
+    @close="profileModalOpen = false"
   />
 </template>

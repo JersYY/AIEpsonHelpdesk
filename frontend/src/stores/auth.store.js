@@ -79,6 +79,21 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    async changePassword(formData) {
+      try {
+        this.loading = true
+        this.error = null
+        return await authService.changePassword(formData)
+      } catch (error) {
+        this.error = error.response?.data?.error?.message
+          || error.response?.data?.message
+          || 'Reset password gagal'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     // Clear local session state only (no network call). Used by the router
     // guard when a stale/invalid token is detected.
     clearSession() {

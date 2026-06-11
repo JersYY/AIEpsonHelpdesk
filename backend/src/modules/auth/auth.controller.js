@@ -16,6 +16,11 @@ export const me = asyncHandler(async (req, res) => {
   return sendSuccess(res, AuthService.me(req.user));
 });
 
+export const changePassword = asyncHandler(async (req, res) => {
+  const data = await AuthService.changePassword(req.user, req.body);
+  return sendSuccess(res, data);
+});
+
 export const logout = asyncHandler(async (req, res) => {
   return sendSuccess(res, AuthService.logout());
 });

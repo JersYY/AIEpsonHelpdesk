@@ -15,6 +15,11 @@ const me = async () => {
   return response.data
 }
 
+const changePassword = async (payload) => {
+  const response = await api.patch('/auth/password', payload)
+  return response.data
+}
+
 const logout = async () => {
   const response = await api.post('/auth/logout')
   return response.data
@@ -24,5 +29,6 @@ export default {
   login,
   register,
   me,
+  changePassword,
   logout,
 }
