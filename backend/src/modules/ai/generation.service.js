@@ -17,19 +17,19 @@ const buildGreetingAnswer = () =>
     "- Departemen/area dan lokasi perangkat.",
     "- Model perangkat, serial number, atau asset tag jika tersedia.",
     "- Kode error, gejala utama, dan langkah yang sudah dicoba.",
-  ].join(" ");
+  ].join("\n");
 
 const buildOutOfScopeAnswer = () =>
   [
     "**Di luar cakupan helpdesk Epson.**",
     "",
-    "Saya bisa membantu troubleshooting perangkat Epson seperti printer, scanner, jaringan, firmware, hardware, atau part.",
+    "Saya bisa membantu troubleshooting perangkat Epson seperti printer, scanner, proyektor, robotika, Moverio/smart glasses, POS/receipt printer, label printer, SureColor/large format, Direct View LED/display, microdevice, jaringan, firmware, hardware, atau part.",
     "",
     "**Silakan kirim:**",
     "- Jenis perangkat dan modelnya.",
     "- Gejala atau kode error.",
     "- Lokasi perangkat dan langkah yang sudah dicoba.",
-  ].join(" ");
+  ].join("\n");
 
 // Langkah aman umum untuk printer mati / tidak menyala.
 const buildPowerIssueAnswer = () =>
@@ -146,6 +146,222 @@ const isPowerIssue = (message = "") => {
   return powerWords.some((word) => text.includes(word));
 };
 
+const isProjectorIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const projectorWords = ["projector", "proyektor"];
+  const issueWords = [
+    "berkedip",
+    "display",
+    "flicker",
+    "gambar",
+    "hdmi",
+    "input",
+    "lampu",
+    "lembap",
+    "lembab",
+    "menyala",
+    "ruang",
+    "ruangan",
+    "ventilasi",
+  ];
+
+  return (
+    projectorWords.some((word) => text.includes(word))
+    && issueWords.some((word) => text.includes(word))
+  );
+};
+
+const buildProjectorAnswer = () => [
+  "**Proyektor Berkedip / Gambar Tidak Stabil**",
+  "",
+  "Untuk kondisi ruangan lembap, langkah pertama harus fokus ke keselamatan perangkat dan koneksi display.",
+  "",
+  "**Langkah aman pertama:**",
+  "1. Jangan membongkar proyektor atau membuka casing.",
+  "2. Matikan proyektor dengan prosedur normal, lalu tunggu kipas berhenti sebelum mencabut daya.",
+  "3. Pastikan area proyektor kering, tidak ada embun/cairan, dan ventilasi tidak tertutup.",
+  "4. Cek kabel HDMI/VGA dan input source; cabut-pasang ulang kabel hanya saat perangkat sudah aman.",
+  "5. Nyalakan kembali setelah beberapa menit, lalu uji dengan satu sumber input yang stabil.",
+  "",
+  "**Jika gambar masih berkedip:**",
+  "- Coba kabel atau port input lain.",
+  "- Catat pola lampu indikator proyektor.",
+  "- Eskalasikan ke helpdesk/teknisi jika ada panas berlebih, bau terbakar, atau indikator error.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Ruang meeting/lokasi perangkat.",
+  "- Model proyektor, serial number, atau asset tag.",
+  "- Jenis input yang dipakai dan foto kondisi kabel/indikator.",
+].join("\n");
+
+const isRobotIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const robotWords = ["robot", "robotika", "scara", "6-axis", "6 axis", "six-axis", "six axis"];
+  return robotWords.some((word) => text.includes(word));
+};
+
+const buildRobotAnswer = () => [
+  "**Robotika Epson / SCARA / 6-Axis Bermasalah**",
+  "",
+  "Untuk perangkat robotika, langkah pertama harus mengutamakan keselamatan area kerja.",
+  "",
+  "**Langkah aman pertama:**",
+  "1. Hentikan mode auto/produksi sesuai SOP area sebelum pengecekan.",
+  "2. Jangan masuk ke area kerja robot jika safety gate, light curtain, atau interlock belum aman.",
+  "3. Cek status emergency stop, safety gate, controller, teach pendant, dan alarm yang tampil.",
+  "4. Pastikan tidak ada benda asing, kabel tertarik, gripper tersangkut, atau tekanan udara/payload tidak sesuai.",
+  "5. Jika ada alarm servo/axis/controller, catat kode alarm sebelum reset.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Area produksi/lokasi cell robot.",
+  "- Model robot/controller, asset tag, dan axis/gripper yang bermasalah.",
+  "- Kode alarm, foto teach pendant/controller, dan langkah terakhir sebelum error.",
+].join("\n");
+
+const isSmartGlassesIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const smartGlassWords = ["moverio", "smartglass", "smart glasses", "smart glass", "kacamata pintar"];
+  return smartGlassWords.some((word) => text.includes(word));
+};
+
+const buildSmartGlassesAnswer = () => [
+  "**Moverio / Smart Glasses Bermasalah**",
+  "",
+  "Mulai dari pengecekan aman pada display, controller, kabel, dan sumber input.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Jika perangkat lembap/terkena cairan, hentikan penggunaan dan jangan dicas dulu.",
+  "2. Pastikan kabel USB-C/Type-C atau koneksi controller terpasang rapat dan tidak longgar.",
+  "3. Restart controller/perangkat sumber, lalu uji kembali dengan aplikasi atau sumber input yang sama.",
+  "4. Cek apakah display gelap total, berkedip, blur, hanya satu sisi, atau touchpad/controller tidak merespons.",
+  "5. Jika memakai aplikasi internal, pastikan aplikasi tidak freeze dan izin display/koneksi sudah aktif.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Model Moverio/smart glasses dan controller yang dipakai.",
+  "- Kondisi baterai/charger/kabel, gejala display, dan aplikasi yang digunakan.",
+  "- Foto perangkat atau error screen jika ada.",
+].join("\n");
+
+const isPosIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const posWords = ["point of sale", "pos", "printer struk", "receipt", "struk", "kasir", "tm-t", "thermal"];
+  return posWords.some((word) => text.includes(word));
+};
+
+const buildPosAnswer = () => [
+  "**POS / Receipt Printer Epson Bermasalah**",
+  "",
+  "Untuk printer struk atau perangkat kasir, mulai dari jalur kertas, cutter, power, dan koneksi host.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Pastikan roll thermal terpasang dengan arah yang benar dan cover tertutup rapat.",
+  "2. Jika kertas macet, matikan perangkat dan keluarkan kertas perlahan; jangan paksa cutter.",
+  "3. Cek lampu indikator, status paper out/cover open, dan apakah cutter berhenti di posisi tidak normal.",
+  "4. Periksa kabel USB/LAN/serial dan status queue atau aplikasi POS di komputer kasir.",
+  "5. Jalankan test print/self-test jika aman dan sesuai SOP area.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Lokasi kasir/area, model printer, serial number atau asset tag.",
+  "- Status lampu/error, jenis koneksi, dan aplikasi POS yang dipakai.",
+  "- Foto jalur kertas/cutter jika ada macet.",
+].join("\n");
+
+const isLabelPrinterIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const labelWords = ["label", "barcode", "gap sensor", "black mark", "media guide"];
+  return labelWords.some((word) => text.includes(word));
+};
+
+const buildLabelPrinterAnswer = () => [
+  "**Label Printer Epson Bermasalah**",
+  "",
+  "Untuk label miring, tidak feed, atau barcode tidak terbaca, fokus ke media, sensor, dan kalibrasi.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Pastikan roll label terpasang lurus dan media guide tidak terlalu longgar/terlalu menekan.",
+  "2. Cek jenis media: gap label, continuous, atau black mark harus sesuai setting printer/aplikasi.",
+  "3. Bersihkan area sensor label dan roller dari debu, lem, atau potongan label.",
+  "4. Jalankan feed/calibration sesuai SOP agar sensor membaca gap atau black mark ulang.",
+  "5. Uji cetak satu label dan cek apakah posisi, barcode, serta kualitas cetak sudah stabil.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Model printer label, ukuran label, dan jenis media.",
+  "- Gejala: skip label, miring, blank, barcode gagal scan, atau sensor error.",
+  "- Foto roll label, jalur media, dan hasil cetak.",
+].join("\n");
+
+const isLargeFormatIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const largeFormatWords = ["surecolor", "large format", "wide format", "plotter"];
+  return largeFormatWords.some((word) => text.includes(word));
+};
+
+const buildLargeFormatAnswer = () => [
+  "**SureColor / Large Format Bermasalah**",
+  "",
+  "Untuk masalah output besar seperti warna meleset, banding, atau media tidak stabil, mulai dari media dan print quality dasar.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Pastikan jenis media, roll paper, dan media profile sesuai dengan pekerjaan cetak.",
+  "2. Jalankan nozzle check dan simpan hasilnya sebelum melakukan cleaning.",
+  "3. Cek level tinta, maintenance tank, platen, dan jalur media dari debu atau sisa potongan media.",
+  "4. Lakukan alignment/calibration jika output bergaris, miring, atau warna tidak konsisten.",
+  "5. Hindari cleaning berulang tanpa mengecek sample output dan status tinta/maintenance tank.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Model SureColor/large format, lokasi, dan asset tag.",
+  "- Jenis media/profile, sample output, dan hasil nozzle check.",
+  "- Kode error atau status panel jika ada.",
+].join("\n");
+
+const isLedDisplayIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const ledWords = ["direct view", "dv led", "led display", "panel led", "signage"];
+  return ledWords.some((word) => text.includes(word));
+};
+
+const buildLedDisplayAnswer = () => [
+  "**Direct View LED / Display Epson Bermasalah**",
+  "",
+  "Untuk display berkedip atau panel tidak stabil, mulai dari power, controller, input source, dan indikator modul.",
+  "",
+  "**Langkah aman pertama:**",
+  "1. Jangan membuka panel/module display jika tidak berwenang.",
+  "2. Pastikan area display kering, ventilasi tidak tertutup, dan tidak ada bau terbakar/panas berlebih.",
+  "3. Cek power distribution, controller, kabel data, dan input source yang digunakan.",
+  "4. Amati apakah masalah terjadi di semua panel atau hanya satu module/area tertentu.",
+  "5. Catat pola indikator/error controller sebelum restart sesuai SOP.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Lokasi display, model/controller, dan area panel yang bermasalah.",
+  "- Foto/video flicker, indikator controller, dan sumber input.",
+  "- Waktu kejadian dan perubahan terakhir sebelum error.",
+].join("\n");
+
+const isMicrodeviceIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const microdeviceWords = ["microdevice", "micro device", "modul sensor", "sensor module", "oscillator", "crystal"];
+  return microdeviceWords.some((word) => text.includes(word));
+};
+
+const buildMicrodeviceAnswer = () => [
+  "**Microdevice / Modul Epson Bermasalah**",
+  "",
+  "Untuk modul, board, sensor, atau microdevice, pengecekan harus mengikuti SOP engineering karena risikonya lebih teknis.",
+  "",
+  "**Langkah pengecekan awal:**",
+  "1. Jangan hot-swap modul/board kecuali SOP area memang mengizinkan.",
+  "2. Pastikan power supply, konektor, ribbon/cable, dan seating modul terpasang benar.",
+  "3. Cek log alat uji, status driver, atau pesan error dari sistem host.",
+  "4. Bandingkan dengan unit referensi jika tersedia dan aman dilakukan.",
+  "5. Jika ada indikasi short, panas berlebih, atau bau terbakar, hentikan penggunaan dan eskalasikan.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Area/lini, tipe modul/board, serial atau lot jika tersedia.",
+  "- Gejala, log/error host, dan perubahan terakhir sebelum masalah.",
+  "- Foto konektor/label modul tanpa membongkar area yang tidak diizinkan.",
+].join("\n");
+
 const isScannerAdfIssue = (message = "") => {
   const text = message.toLowerCase();
   const scannerWords = ["adf", "memindai", "pemindai", "scan", "scanner"];
@@ -253,7 +469,7 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   }
 
   if (
-    userTopic !== "scanner" &&
+    (!userTopic || userTopic === "printQuality") &&
     (
       text.includes("banding") ||
       text.includes("nozzle") ||
@@ -280,7 +496,7 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   }
 
   if (
-    userTopic !== "network" &&
+    (!userTopic || userTopic === "scanner") &&
     (
       text.includes("adf") ||
       text.includes("scanner") ||
@@ -300,7 +516,7 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   }
 
   if (
-    userTopic !== "scanner" &&
+    (!userTopic || userTopic === "network") &&
     (
       text.includes("network") ||
       text.includes("ip address") ||
@@ -345,6 +561,14 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
 const buildSafeFallbackAnswer = (message = "") => {
   const cleanMessage = String(message).trim();
 
+  if (isRobotIssue(cleanMessage)) return buildRobotAnswer();
+  if (isSmartGlassesIssue(cleanMessage)) return buildSmartGlassesAnswer();
+  if (isPosIssue(cleanMessage)) return buildPosAnswer();
+  if (isLabelPrinterIssue(cleanMessage)) return buildLabelPrinterAnswer();
+  if (isLargeFormatIssue(cleanMessage)) return buildLargeFormatAnswer();
+  if (isLedDisplayIssue(cleanMessage)) return buildLedDisplayAnswer();
+  if (isMicrodeviceIssue(cleanMessage)) return buildMicrodeviceAnswer();
+  if (isProjectorIssue(cleanMessage)) return buildProjectorAnswer();
   if (isScannerPanelIssue(cleanMessage)) return buildScannerPanelAnswer();
   if (isScannerAdfIssue(cleanMessage)) return buildScannerAdfAnswer();
   if (isPowerIssue(cleanMessage)) return buildPowerIssueAnswer();
@@ -379,6 +603,38 @@ const mockAnswer = ({
 
   if (imagePath && (isImageIdentityQuestion(message) || !contexts.length)) {
     return buildImageFallbackAnswer(message);
+  }
+
+  if (isRobotIssue(message)) {
+    return buildRobotAnswer();
+  }
+
+  if (isSmartGlassesIssue(message)) {
+    return buildSmartGlassesAnswer();
+  }
+
+  if (isPosIssue(message)) {
+    return buildPosAnswer();
+  }
+
+  if (isLabelPrinterIssue(message)) {
+    return buildLabelPrinterAnswer();
+  }
+
+  if (isLargeFormatIssue(message)) {
+    return buildLargeFormatAnswer();
+  }
+
+  if (isLedDisplayIssue(message)) {
+    return buildLedDisplayAnswer();
+  }
+
+  if (isMicrodeviceIssue(message)) {
+    return buildMicrodeviceAnswer();
+  }
+
+  if (isProjectorIssue(message)) {
+    return buildProjectorAnswer();
   }
 
   if (isScannerPanelIssue(message)) {

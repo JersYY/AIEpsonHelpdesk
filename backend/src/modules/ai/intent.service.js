@@ -33,9 +33,11 @@ const HELPDESK_KEYWORDS = [
   "error",
   "firmware",
   "garis",
+  "gambar",
   "hang",
   "hardware",
   "hasil",
+  "hdmi",
   "hidup",
   "hidupkan",
   "ink",
@@ -63,6 +65,8 @@ const HELPDESK_KEYWORDS = [
   "paper",
   "part",
   "power",
+  "projector",
+  "proyektor",
   "print",
   "printer",
   "responsif",
@@ -82,6 +86,34 @@ const HELPDESK_KEYWORDS = [
   "lembab",
   "troubleshooting",
   "wifi",
+  "axis",
+  "barcode",
+  "black mark",
+  "controller",
+  "direct view",
+  "e-stop",
+  "gap sensor",
+  "gripper",
+  "kasir",
+  "label",
+  "large format",
+  "led display",
+  "micro device",
+  "microdevice",
+  "moverio",
+  "plotter",
+  "pos",
+  "printer struk",
+  "receipt",
+  "robot",
+  "robotika",
+  "scara",
+  "signage",
+  "smart glasses",
+  "smartglass",
+  "struk",
+  "surecolor",
+  "thermal",
   "yellow",
 ];
 
@@ -136,20 +168,129 @@ const GENERIC_DOMAIN_WORDS = new Set([
 
 const TOKEN_SYNONYMS = {
   adf: ["scanner", "scan", "feed"],
+  berkedip: ["flicker", "blink"],
   garis: ["banding", "line"],
+  gambar: ["display", "image", "projection"],
+  gripper: ["end effector"],
   hilang: ["missing"],
+  hdmi: ["display", "input"],
   jaringan: ["network"],
   kertas: ["paper"],
+  label: ["barcode", "gap sensor", "black mark"],
+  led: ["direct view", "display", "signage"],
   macet: ["jam", "nyangkut", "tersangkut"],
   memindai: ["scan", "scanner"],
+  moverio: ["smartglass", "smart glasses", "kacamata"],
   miring: ["skew"],
+  pos: ["receipt", "struk", "kasir", "thermal"],
   produksi: ["production"],
+  robot: ["robotika", "scara", "6-axis", "servo"],
+  robotika: ["robot", "scara", "6-axis", "servo"],
+  scara: ["robot", "robotika", "axis"],
+  smartglass: ["moverio", "smart glasses", "kacamata"],
+  struk: ["receipt", "pos", "thermal"],
+  surecolor: ["large format", "wide format", "plotter"],
   terdeteksi: ["discovered", "discovery"],
   tinta: ["ink"],
   titik: ["dots", "nozzle"],
 };
 
 const ISSUE_TOPICS = {
+  robot: [
+    "6-axis",
+    "axis",
+    "controller",
+    "e-stop",
+    "emergency stop",
+    "gripper",
+    "pendant",
+    "robot",
+    "robotika",
+    "safety gate",
+    "scara",
+    "servo",
+    "teach pendant",
+  ],
+  smartGlasses: [
+    "display",
+    "kacamata",
+    "kacamata pintar",
+    "moverio",
+    "smart glasses",
+    "smartglass",
+    "touchpad",
+    "type-c",
+    "usb-c",
+  ],
+  pos: [
+    "cash drawer",
+    "cutter",
+    "kasir",
+    "point of sale",
+    "pos",
+    "printer struk",
+    "receipt",
+    "struk",
+    "thermal",
+    "tm-t",
+  ],
+  labelPrinter: [
+    "barcode",
+    "black mark",
+    "feed",
+    "gap",
+    "gap sensor",
+    "label",
+    "media guide",
+    "roll",
+    "sensor label",
+  ],
+  largeFormat: [
+    "calibration",
+    "large format",
+    "media profile",
+    "plotter",
+    "roll paper",
+    "surecolor",
+    "wide format",
+  ],
+  ledDisplay: [
+    "direct view",
+    "dv led",
+    "led display",
+    "module led",
+    "panel led",
+    "signage",
+  ],
+  microdevice: [
+    "board",
+    "crystal",
+    "micro device",
+    "microdevice",
+    "modul",
+    "module",
+    "oscillator",
+    "sensor module",
+  ],
+  projector: [
+    "berkedip",
+    "display",
+    "flicker",
+    "gambar",
+    "hdmi",
+    "image",
+    "input",
+    "lampu",
+    "lembap",
+    "lembab",
+    "meeting",
+    "projector",
+    "projection",
+    "proyektor",
+    "ruang",
+    "ruangan",
+    "ventilasi",
+  ],
   scannerPanel: [
     "button",
     "keypad",
@@ -220,6 +361,22 @@ const ISSUE_TOPICS = {
     "power",
     "stopkontak",
   ],
+};
+
+const REQUIRED_CONTEXT_TERMS = {
+  robot: ["6-axis", "robot", "robotika", "scara"],
+  smartGlasses: ["kacamata", "moverio", "smart glasses", "smartglass"],
+  pos: ["kasir", "point of sale", "pos", "receipt", "struk", "tm-t"],
+  labelPrinter: ["barcode", "black mark", "gap sensor", "label"],
+  largeFormat: ["large format", "plotter", "surecolor", "wide format"],
+  ledDisplay: ["direct view", "dv led", "led display", "panel led", "signage"],
+  microdevice: ["micro device", "microdevice", "modul", "module", "oscillator"],
+  projector: ["projector", "proyektor"],
+  scannerPanel: ["scan", "scanner", "pemindai"],
+  scanner: ["adf", "scan", "scanner"],
+  network: ["ip", "jaringan", "network", "print server", "queue", "subnet", "wifi"],
+  printQuality: ["banding", "cetak", "garis", "nozzle", "print quality"],
+  power: ["daya", "listrik", "mati", "menyala", "power"],
 };
 
 const normalizeText = (text = "") =>
@@ -332,6 +489,16 @@ export const IntentService = {
     const normalized = normalizeText(message);
     if (!normalized) return null;
 
+    if (includesAny(normalized, ["robot", "robotika", "scara", "6-axis", "six-axis"])) return "robot";
+    if (includesAny(normalized, ["moverio", "smart glasses", "smartglass", "kacamata pintar"])) return "smartGlasses";
+    if (includesAny(normalized, ["point of sale", "pos", "printer struk", "receipt", "struk", "tm-t"])) return "pos";
+    if (includesAny(normalized, ["barcode", "black mark", "gap sensor", "label"])) return "labelPrinter";
+    if (includesAny(normalized, ["large format", "plotter", "surecolor", "wide format"])) return "largeFormat";
+    if (includesAny(normalized, ["direct view", "dv led", "led display", "panel led", "signage"])) return "ledDisplay";
+    if (includesAny(normalized, ["micro device", "microdevice", "modul sensor", "oscillator"])) return "microdevice";
+    if (
+      includesAny(normalized, ["projector", "proyektor"])
+    ) return "projector";
     if (
       includesAny(normalized, ["scan", "scanner", "pemindai"])
       && includesAny(normalized, ISSUE_TOPICS.scannerPanel)
@@ -352,6 +519,11 @@ export const IntentService = {
 
     const topicWords = ISSUE_TOPICS[topic] || [];
     if (!topicWords.length) return true;
+
+    const requiredTerms = REQUIRED_CONTEXT_TERMS[topic] || [];
+    if (requiredTerms.length && !includesAny(contextText, requiredTerms)) {
+      return false;
+    }
 
     return includesAny(contextText, topicWords);
   },
