@@ -71,6 +71,7 @@ const HELPDESK_KEYWORDS = [
   "printer",
   "responsif",
   "restart",
+  "reset",
   "roller",
   "ruangan",
   "rusak",
@@ -304,6 +305,21 @@ const ISSUE_TOPICS = {
     "tombol",
     "touch",
   ],
+  scannerMaintenance: [
+    "bersih",
+    "bersihkan",
+    "calibration",
+    "clean",
+    "cleaning",
+    "kaca",
+    "kalibrasi",
+    "lama tidak digunakan",
+    "paper path",
+    "pemeliharaan",
+    "reset",
+    "restart",
+    "test scan",
+  ],
   scanner: [
     "adf",
     "calibration",
@@ -373,6 +389,7 @@ const REQUIRED_CONTEXT_TERMS = {
   microdevice: ["micro device", "microdevice", "modul", "module", "oscillator"],
   projector: ["projector", "proyektor"],
   scannerPanel: ["scan", "scanner", "pemindai"],
+  scannerMaintenance: ["scan", "scanner", "pemindai"],
   scanner: ["adf", "scan", "scanner"],
   network: ["ip", "jaringan", "network", "print server", "queue", "subnet", "wifi"],
   printQuality: ["banding", "cetak", "garis", "nozzle", "print quality"],
@@ -503,6 +520,10 @@ export const IntentService = {
       includesAny(normalized, ["scan", "scanner", "pemindai"])
       && includesAny(normalized, ISSUE_TOPICS.scannerPanel)
     ) return "scannerPanel";
+    if (
+      includesAny(normalized, ["scan", "scanner", "pemindai"])
+      && includesAny(normalized, ISSUE_TOPICS.scannerMaintenance)
+    ) return "scannerMaintenance";
     if (includesAny(normalized, ISSUE_TOPICS.scanner)) return "scanner";
     if (includesAny(normalized, ISSUE_TOPICS.network)) return "network";
     if (includesAny(normalized, ISSUE_TOPICS.printQuality)) return "printQuality";
@@ -528,9 +549,16 @@ export const IntentService = {
     return includesAny(contextText, topicWords);
   },
 
-  contextOverlapScore(message = "", context = {}) {
+  contextRelevanceDetails(message = "", context = {}) {
     const contextText = normalizeText(contextToText(context));
-    if (!contextText) return 0;
+    if (!contextText) {
+      return {
+        topic: null,
+        tokenScore: 0,
+        topicScore: 0,
+        totalScore: 0,
+      };
+    }
 
     const tokens = this.significantTokens(message);
     const tokenScore = tokens.reduce((score, token) => {
@@ -541,7 +569,27 @@ export const IntentService = {
     const topic = this.classifyIssueTopic(message);
     const topicScore = topic && this.contextMatchesIssueTopic(message, context) ? 2 : 0;
 
-    return tokenScore + topicScore;
+    return {
+      topic,
+      tokenScore,
+      topicScore,
+      totalScore: tokenScore + topicScore,
+    };
+  },
+
+  contextOverlapScore(message = "", context = {}) {
+    return this.contextRelevanceDetails(message, context).totalScore;
+  },
+
+  isStrictlyGroundedContext(message = "", context = {}) {
+    const details = this.contextRelevanceDetails(message, context);
+    if (details.totalScore <= 0) return false;
+
+    if (!details.topic) {
+      return details.tokenScore > 0;
+    }
+
+    return details.topicScore > 0 && details.tokenScore > 0;
   },
 
   filterGroundedContexts(message = "", contexts = []) {
@@ -551,7 +599,7 @@ export const IntentService = {
         relevanceScore: this.contextOverlapScore(message, context),
       }))
       .filter(({ context, relevanceScore }) =>
-        relevanceScore > 0 && this.contextMatchesIssueTopic(message, context),
+        relevanceScore > 0 && this.isStrictlyGroundedContext(message, context),
       )
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .map(({ context, relevanceScore }) => ({

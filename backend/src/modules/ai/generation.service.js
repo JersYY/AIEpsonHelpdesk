@@ -418,13 +418,91 @@ const buildMicrodeviceAnswer = () => [
 const isScannerAdfIssue = (message = "") => {
   const text = message.toLowerCase();
   const scannerWords = ["adf", "memindai", "pemindai", "scan", "scanner"];
-  const issueWords = ["calibration", "error", "feed", "jam", "macet", "miring", "nyangkut", "tersangkut"];
+  const issueWords = ["double feed", "feed", "jam", "macet", "miring", "narik dua", "nyangkut", "tersangkut"];
 
   return (
     scannerWords.some((word) => text.includes(word))
     && issueWords.some((word) => text.includes(word))
   );
 };
+
+const hasScannerContext = (message = "") => {
+  const text = message.toLowerCase();
+  return ["adf", "pemindai", "scan", "scanner"].some((word) => text.includes(word));
+};
+
+const isScannerCleaningQuestion = (message = "", analysisMessage = "") => {
+  const latest = message.toLowerCase();
+  const combined = analysisMessage.toLowerCase();
+  const cleaningWords = [
+    "bersih",
+    "bersihin",
+    "bersihkan",
+    "cara bersih",
+    "clean",
+    "cleaning",
+    "debu",
+    "paper path",
+    "roller",
+    "separation pad",
+  ];
+  return hasScannerContext(combined) && cleaningWords.some((word) => latest.includes(word));
+};
+
+const buildScannerCleaningAnswer = () => [
+  "**Cara Membersihkan Scanner / ADF dengan Aman**",
+  "",
+  "Bisa. Untuk scanner yang lama tidak dipakai, bersihkan bagian jalur kertas dan area kaca secara hati-hati dulu.",
+  "",
+  "**Langkah aman:**",
+  "1. Matikan scanner, cabut kabel daya, lalu tunggu 1-2 menit.",
+  "2. Buka cover ADF sesuai arah bukaan normal. Jangan paksa engsel atau cover.",
+  "3. Ambil dokumen/sisa kertas jika ada, lalu cek jalur kertas dari debu, sobekan kecil, klip, atau benda asing.",
+  "4. Bersihkan pickup roller dan separation pad memakai kain microfiber kering atau sedikit lembap. Jangan sampai cairan menetes ke dalam perangkat.",
+  "5. Bersihkan kaca scanner/scan glass dan area strip kaca ADF dengan kain microfiber agar tidak ada debu atau bekas jari.",
+  "6. Tunggu area benar-benar kering, tutup cover, nyalakan scanner, lalu coba test scan 1 lembar dulu.",
+  "",
+  "**Hindari:**",
+  "- Alkohol/cairan berlebihan langsung ke perangkat.",
+  "- Menekan roller terlalu keras.",
+  "- Membongkar panel atau part internal tanpa SOP teknisi.",
+  "",
+  "**Kalau masih bermasalah:**",
+  "- Kirim model scanner, lokasi, asset tag, hasil test scan, dan foto area ADF/panel.",
+].join("\n");
+
+const isScannerMaintenanceQuestion = (message = "", analysisMessage = "") => {
+  const latest = message.toLowerCase();
+  const combined = analysisMessage.toLowerCase();
+  const maintenanceWords = [
+    "kalibrasi",
+    "lama tidak digunakan",
+    "lama tidak dipakai",
+    "reset",
+    "resetnya",
+    "restart",
+    "test scan",
+  ];
+  return hasScannerContext(combined) && maintenanceWords.some((word) => latest.includes(word));
+};
+
+const buildScannerMaintenanceAnswer = () => [
+  "**Reset / Pengecekan Scanner Lama Tidak Digunakan**",
+  "",
+  "Untuk scanner yang lama tidak dipakai, jangan langsung factory reset. Mulai dari reset ringan dan test scan dulu.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Matikan scanner, cabut kabel daya 1-2 menit, lalu pasang kembali.",
+  "2. Pastikan kabel USB/LAN dan adaptor daya terpasang rapat.",
+  "3. Bersihkan kaca scanner, strip kaca ADF, pickup roller, dan jalur kertas dari debu.",
+  "4. Nyalakan scanner, lalu coba test scan 1 lembar dari flatbed/kaca scanner.",
+  "5. Jika ada ADF, coba test scan 1 lembar dari ADF setelah jalur kertas bersih.",
+  "6. Jika aplikasi/driver menyediakan calibration atau maintenance scan, jalankan dari utility resmi/internal sesuai SOP.",
+  "",
+  "**Jika masih gagal:**",
+  "- Catat error di panel/aplikasi.",
+  "- Kirim model scanner, lokasi, asset tag, jenis koneksi, dan kapan terakhir digunakan.",
+].join("\n");
 
 const isScannerPanelIssue = (message = "") => {
   const text = message.toLowerCase();
@@ -510,12 +588,22 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   const text = String(topContext?.chunkText || "").toLowerCase();
   const userTopic = IntentService.classifyIssueTopic(message);
 
+  if (isScannerCleaningQuestion(message, message)) {
+    return buildScannerCleaningAnswer();
+  }
+
+  if (isScannerMaintenanceQuestion(message, message)) {
+    return buildScannerMaintenanceAnswer();
+  }
+
   if (
     userTopic === "scanner" &&
+    isScannerAdfIssue(message) &&
     (
       text.includes("adf") ||
-      text.includes("scanner") ||
-      text.includes("scan")
+      text.includes("feed") ||
+      text.includes("jam") ||
+      text.includes("macet")
     )
   ) {
     return buildScannerAdfAnswer();
@@ -550,9 +638,10 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
 
   if (
     (!userTopic || userTopic === "scanner") &&
+    isScannerAdfIssue(message) &&
     (
       text.includes("adf") ||
-      text.includes("scanner") ||
+      text.includes("feed") ||
       text.includes("jam")
     )
   ) {
@@ -616,6 +705,8 @@ const buildSafeFallbackAnswer = (message = "", analysisMessage = message) => {
   const cleanAnalysisMessage = String(analysisMessage || cleanMessage).trim();
 
   if (isLargeFormatMediaFollowUp(cleanMessage, cleanAnalysisMessage)) return buildLargeFormatMediaAnswer();
+  if (isScannerCleaningQuestion(cleanMessage, cleanAnalysisMessage)) return buildScannerCleaningAnswer();
+  if (isScannerMaintenanceQuestion(cleanMessage, cleanAnalysisMessage)) return buildScannerMaintenanceAnswer();
   if (isRobotIssue(cleanAnalysisMessage)) return buildRobotAnswer();
   if (isSmartGlassesIssue(cleanAnalysisMessage)) return buildSmartGlassesAnswer();
   if (isPosIssue(cleanAnalysisMessage)) return buildPosAnswer();
@@ -669,6 +760,14 @@ const mockAnswer = ({
 
   if (isLargeFormatMediaFollowUp(message, analysisMessage)) {
     return buildLargeFormatMediaAnswer();
+  }
+
+  if (isScannerCleaningQuestion(message, analysisMessage)) {
+    return buildScannerCleaningAnswer();
+  }
+
+  if (isScannerMaintenanceQuestion(message, analysisMessage)) {
+    return buildScannerMaintenanceAnswer();
   }
 
   if (isRobotIssue(analysisMessage)) {

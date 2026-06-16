@@ -1,4 +1,5 @@
 import { GenerationService } from "./generation.service.js";
+import { IntentService } from "./intent.service.js";
 import { PromptService } from "./prompt.service.js";
 import { RetrievalService } from "./retrieval.service.js";
 import { AiSettingsService } from "./settings.service.js";
@@ -17,9 +18,11 @@ export const RagService = {
     contextualMessage = "",
   }) {
     const settings = await AiSettingsService.getSettings();
+    const groundingMessage = contextualMessage || message || "";
+    const groundedContexts = IntentService.filterGroundedContexts(groundingMessage, contexts);
     const prompt = PromptService.buildHelpdeskPrompt({
       message,
-      contexts,
+      contexts: groundedContexts,
       intent,
       conversationContext,
       responseMode: settings.mode,
@@ -31,7 +34,7 @@ export const RagService = {
     return GenerationService.generateAnswer({
       message,
       prompt,
-      contexts,
+      contexts: groundedContexts,
       imagePath,
       intent,
       settings,
