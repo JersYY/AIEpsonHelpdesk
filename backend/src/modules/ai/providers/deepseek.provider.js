@@ -80,9 +80,12 @@ export const DeepSeekProvider = {
         },
       ],
       temperature: config.temperature,
-      max_tokens: config.maxOutputTokens,
       stream: false,
     };
+
+    if (Number.isFinite(Number(config.maxOutputTokens))) {
+      body.max_tokens = Number(config.maxOutputTokens);
+    }
 
     if (config.thinking && config.thinking !== "disabled") {
       body.thinking = { type: config.thinking };

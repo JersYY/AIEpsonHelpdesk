@@ -242,6 +242,7 @@ export const GenerationService = {
             prompt,
             imagePath,
             model: aiConfig.gemini.visionModel,
+            maxOutputTokens: runtimeConfig.maxOutputTokens,
           });
 
       if (aiText) {

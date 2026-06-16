@@ -20,7 +20,7 @@ const modeLabel = (mode) => (mode === "normal" ? "Normal" : "Hemat");
 
 const modeDescription = (mode) =>
   mode === "normal"
-    ? "Jawaban lebih lengkap untuk kasus teknis yang butuh konteks lebih panjang."
+    ? "Jawaban lengkap untuk kasus teknis yang butuh konteks panjang tanpa batas token aplikasi."
     : "Jawaban ringkas dengan batas token lebih kecil untuk penggunaan harian yang hemat.";
 
 const autoModelLabel = () => `${aiConfig.deepseek.model} / ${aiConfig.gemini.visionModel}`;
@@ -139,7 +139,7 @@ export const AiSettingsService = {
 
   modeInstruction(settings) {
     return settings?.mode === "normal"
-      ? "MODE NORMAL: beri jawaban tetap ringkas, tetapi boleh lebih lengkap untuk langkah teknis, alasan, dan data yang perlu dikirim. Batas maksimal 5 langkah utama."
+      ? "MODE NORMAL: beri jawaban lengkap sesuai kebutuhan kasus teknis, termasuk langkah, alasan, data yang perlu dikirim, dan catatan eskalasi bila relevan. Jangan membatasi jumlah langkah secara artifisial, tetapi tetap jaga agar jawaban akurat dan mudah dipahami."
       : "MODE HEMAT: jawab lebih padat, prioritaskan 3-4 langkah paling penting, dan hindari penjelasan panjang yang tidak perlu.";
   },
 };

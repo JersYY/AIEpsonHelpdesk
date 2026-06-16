@@ -34,7 +34,7 @@ export const aiConfig = {
         timeoutMs: finiteNumber(env.DEEPSEEK_NORMAL_TIMEOUT_MS, 15000, { min: 1000 }),
         maxRetries: finiteNumber(env.DEEPSEEK_NORMAL_MAX_RETRIES, 1, { min: 0, max: 5 }),
         temperature: finiteNumber(env.DEEPSEEK_NORMAL_TEMPERATURE, 0.25, { min: 0, max: 2 }),
-        maxOutputTokens: finiteNumber(env.DEEPSEEK_NORMAL_MAX_OUTPUT_TOKENS, 850, { min: 1 }),
+        maxOutputTokens: null,
         thinking: env.DEEPSEEK_THINKING || "disabled",
       },
     },

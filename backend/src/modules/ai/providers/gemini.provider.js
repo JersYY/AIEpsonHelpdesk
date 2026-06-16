@@ -70,7 +70,12 @@ const requestJson = async (url, body) => {
 };
 
 export const GeminiProvider = {
-  async generateAnswer({ prompt, imagePath = null, model = aiConfig.gemini.model }) {
+  async generateAnswer({
+    prompt,
+    imagePath = null,
+    model = aiConfig.gemini.model,
+    maxOutputTokens = aiConfig.gemini.maxOutputTokens,
+  }) {
     if (!aiConfig.gemini.apiKey) {
       return null;
     }
@@ -92,8 +97,11 @@ export const GeminiProvider = {
 
     const generationConfig = {
       temperature: aiConfig.gemini.temperature,
-      maxOutputTokens: aiConfig.gemini.maxOutputTokens,
     };
+
+    if (Number.isFinite(Number(maxOutputTokens))) {
+      generationConfig.maxOutputTokens = Number(maxOutputTokens);
+    }
 
     if (supportsThinkingConfig(model)) {
       generationConfig.thinkingConfig = { thinkingBudget: 0 };
