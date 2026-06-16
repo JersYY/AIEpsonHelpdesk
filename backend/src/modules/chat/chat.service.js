@@ -37,6 +37,60 @@ const confidenceScore = ({ provider, contexts }) => {
 };
 
 const isKnowledgeGrounded = (contexts = []) => contexts.length > 0;
+const RECENT_CONTEXT_LIMIT = 8;
+
+const cleanInline = (value = "") => String(value || "").replace(/\s+/g, " ").trim();
+const truncateInline = (value = "", max = 320) => {
+  const text = cleanInline(value);
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 3).trim()}...`;
+};
+
+const senderName = (sender) => {
+  if (sender === "USER") return "User";
+  if (sender === "AI") return "AI";
+  return "System";
+};
+
+const formatConversationContext = (messages = []) =>
+  messages
+    .filter((item) => item?.messageText)
+    .map((item) => `${senderName(item.sender)}: ${truncateInline(item.messageText)}`)
+    .join("\n");
+
+const FOLLOW_UP_TERMS = [
+  "nya",
+  "itu",
+  "tersebut",
+  "tadi",
+  "lanjut",
+  "lalu",
+  "terus",
+  "selanjutnya",
+  "masih",
+  "belum",
+  "sudah",
+  "bukan",
+  "maksudnya",
+  "kalau begitu",
+  "yang tadi",
+];
+
+const isLikelyFollowUp = (message = "") => {
+  const text = cleanInline(message).toLowerCase();
+  if (!text) return false;
+  return FOLLOW_UP_TERMS.some((term) => text.includes(term));
+};
+
+const buildContextualQuery = ({ message = "", conversationContext = "", useHistory = false }) => {
+  if (!useHistory || !conversationContext) return message || "";
+  return [
+    "Riwayat percakapan terakhir:",
+    conversationContext,
+    "",
+    `Pesan terbaru user: ${message || ""}`,
+  ].join("\n");
+};
 
 // Visible (non-deleted) session filter helper.
 const visibleScope = (user, extra = {}) => ({
@@ -61,14 +115,44 @@ const ensureUserSession = async (sessionId, user) => {
   return session;
 };
 
+const recentConversationMessages = async (sessionId, { beforeCreatedAt = null } = {}) => {
+  if (!sessionId || !beforeCreatedAt) return [];
+
+  const messages = await prisma.chatMessage.findMany({
+    where: {
+      sessionId,
+      createdAt: { lt: beforeCreatedAt },
+    },
+    orderBy: { createdAt: "desc" },
+    take: RECENT_CONTEXT_LIMIT,
+  });
+
+  return messages.reverse();
+};
+
 // Shared AI pipeline: run ML predictions + RAG + generation for a user message.
-const runAiPipeline = async ({ message, imagePath = null }) => {
+const runAiPipeline = async ({ message, imagePath = null, conversationMessages = [] }) => {
+  const conversationContext = formatConversationContext(conversationMessages);
+  const latestTopic = IntentService.classifyIssueTopic(message);
+  const historyTopic = IntentService.classifyIssueTopic(conversationContext);
+  const useHistory = Boolean(
+    conversationContext
+    && isLikelyFollowUp(message)
+    && (!latestTopic || !historyTopic || latestTopic === historyTopic),
+  );
+  const contextualQuery = buildContextualQuery({
+    message,
+    conversationContext,
+    useHistory,
+  });
   let categoryPrediction = null;
-  let intentPrediction = message ? IntentService.classifyIntent(message) : null;
+  let intentPrediction = message
+    ? IntentService.classifyIntent(useHistory ? contextualQuery : message)
+    : null;
 
   if (message) {
     try {
-      categoryPrediction = await MlService.predictCategory(message);
+      categoryPrediction = await MlService.predictCategory(useHistory ? contextualQuery : message);
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
         console.warn(`[ml] category prediction skipped: ${error.message}`);
@@ -86,12 +170,14 @@ const runAiPipeline = async ({ message, imagePath = null }) => {
   }
 
   const startedAt = Date.now();
-  const contexts = await RagService.searchRelevantChunks(message || "");
+  const contexts = await RagService.searchRelevantChunks(contextualQuery || "");
   const answer = await RagService.generateAnswer({
     message,
     contexts,
     imagePath,
     intent: intentPrediction,
+    conversationContext,
+    contextualMessage: contextualQuery,
   });
   await waitForMinimumResponseTime(startedAt);
   const responseTimeMs = Date.now() - startedAt;
@@ -101,7 +187,7 @@ const runAiPipeline = async ({ message, imagePath = null }) => {
   let escalation = null;
   if (message) {
     try {
-      escalation = await MlService.predictEscalation(message, { aiConfidence: score });
+      escalation = await MlService.predictEscalation(useHistory ? contextualQuery : message, { aiConfidence: score });
     } catch {
       escalation = null;
     }
@@ -198,8 +284,16 @@ export const ChatService = {
       include: { image: true },
     });
 
+    const conversationMessages = await recentConversationMessages(session.id, {
+      beforeCreatedAt: userMessage.createdAt,
+    });
+
     const { categoryPrediction, contexts, answer, responseTimeMs, score, escalation } =
-      await runAiPipeline({ message, imagePath: image?.storagePath || null });
+      await runAiPipeline({
+        message,
+        imagePath: image?.storagePath || null,
+        conversationMessages,
+      });
 
     // Auto-assign category to the session when confident and not already set.
     if (
@@ -387,7 +481,9 @@ export const ChatService = {
       },
     });
 
-    return this.regenerateFromUserMessage(user, message.sessionId, clean);
+    return this.regenerateFromUserMessage(user, message.sessionId, clean, null, {
+      beforeCreatedAt: message.createdAt,
+    });
   },
 
   async regenerateMessage(user, aiMessageId) {
@@ -429,13 +525,18 @@ export const ChatService = {
       aiMessage.sessionId,
       prevUser.messageText,
       prevUser.image?.storagePath || null,
+      { beforeCreatedAt: prevUser.createdAt },
     );
   },
 
   // Internal: produce and persist a new AI answer for the given session.
-  async regenerateFromUserMessage(user, sessionId, message, imagePath = null) {
+  async regenerateFromUserMessage(user, sessionId, message, imagePath = null, options = {}) {
+    const conversationMessages = await recentConversationMessages(sessionId, {
+      beforeCreatedAt: options.beforeCreatedAt,
+    });
+
     const { categoryPrediction, contexts, answer, responseTimeMs, score, escalation } =
-      await runAiPipeline({ message, imagePath });
+      await runAiPipeline({ message, imagePath, conversationMessages });
 
     const aiMessage = await prisma.chatMessage.create({
       data: {

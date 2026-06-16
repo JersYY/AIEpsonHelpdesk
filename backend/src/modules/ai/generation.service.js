@@ -31,6 +31,34 @@ const buildOutOfScopeAnswer = () =>
     "- Lokasi perangkat dan langkah yang sudah dicoba.",
   ].join("\n");
 
+const isSecretRequest = (message = "") => {
+  const text = message.toLowerCase();
+  const secretWords = [
+    "api key",
+    "apikey",
+    "secret",
+    "token",
+    "password",
+    "credential",
+    "kredensial",
+    "env",
+  ];
+  const requestWords = ["butuh", "minta", "kasih", "berikan", "share", "bagikan", "lihat"];
+  return secretWords.some((word) => text.includes(word))
+    && requestWords.some((word) => text.includes(word));
+};
+
+const buildSecretRequestAnswer = () => [
+  "**Akses Rahasia Tidak Bisa Dibagikan**",
+  "",
+  "Saya tidak bisa memberikan API key, token, password, atau secret internal.",
+  "",
+  "**Yang bisa dilakukan:**",
+  "1. Untuk perbaikan perangkat Epson, lanjutkan troubleshooting tanpa meminta secret.",
+  "2. Jika memang butuh akses sistem, ajukan lewat admin/helpdesk sesuai SOP internal.",
+  "3. Kirim model perangkat, lokasi, asset tag, gejala, kode error, dan langkah yang sudah dicoba.",
+].join("\n");
+
 // Langkah aman umum untuk printer mati / tidak menyala.
 const buildPowerIssueAnswer = () =>
   [
@@ -314,6 +342,31 @@ const buildLargeFormatAnswer = () => [
   "- Kode error atau status panel jika ada.",
 ].join("\n");
 
+const isLargeFormatMediaFollowUp = (message = "", analysisMessage = "") => {
+  const latest = message.toLowerCase();
+  const combined = analysisMessage.toLowerCase();
+  const mediaWords = ["jenis media", "medianya", "media nya", "bukan roll paper", "bukan roll"];
+  return isLargeFormatIssue(combined) && mediaWords.some((word) => latest.includes(word));
+};
+
+const buildLargeFormatMediaAnswer = () => [
+  "**Baik, Medianya Bukan Roll Paper**",
+  "",
+  "Kalau media yang dipakai bukan roll paper, fokus pengecekan digeser ke jenis media aktual dan profile cetaknya.",
+  "",
+  "**Langkah pengecekan:**",
+  "1. Pastikan media profile di driver/RIP sesuai media yang dipakai, misalnya cut sheet, photo paper, canvas, film, atau media khusus lain.",
+  "2. Cek ukuran, ketebalan, dan setting paper type agar tidak salah feed atau hasil warna meleset.",
+  "3. Jalankan nozzle check dan simpan hasilnya sebelum cleaning.",
+  "4. Jika output bergaris/meleset, lakukan alignment/calibration sesuai jenis media tersebut.",
+  "5. Lampirkan sample output dan foto label/kemasan media saat eskalasi.",
+  "",
+  "**Data yang perlu dikirim:**",
+  "- Jenis media yang dipakai sekarang.",
+  "- Model SureColor/large format dan aplikasi/driver/RIP yang digunakan.",
+  "- Gejala utama: banding, warna meleset, media slip, atau error panel.",
+].join("\n");
+
 const isLedDisplayIssue = (message = "") => {
   const text = message.toLowerCase();
   const ledWords = ["direct view", "dv led", "led display", "panel led", "signage"];
@@ -558,21 +611,23 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
 };
 
 // Troubleshooting umum yang aman saat tidak ada artikel knowledge base spesifik.
-const buildSafeFallbackAnswer = (message = "") => {
+const buildSafeFallbackAnswer = (message = "", analysisMessage = message) => {
   const cleanMessage = String(message).trim();
+  const cleanAnalysisMessage = String(analysisMessage || cleanMessage).trim();
 
-  if (isRobotIssue(cleanMessage)) return buildRobotAnswer();
-  if (isSmartGlassesIssue(cleanMessage)) return buildSmartGlassesAnswer();
-  if (isPosIssue(cleanMessage)) return buildPosAnswer();
-  if (isLabelPrinterIssue(cleanMessage)) return buildLabelPrinterAnswer();
-  if (isLargeFormatIssue(cleanMessage)) return buildLargeFormatAnswer();
-  if (isLedDisplayIssue(cleanMessage)) return buildLedDisplayAnswer();
-  if (isMicrodeviceIssue(cleanMessage)) return buildMicrodeviceAnswer();
-  if (isProjectorIssue(cleanMessage)) return buildProjectorAnswer();
-  if (isScannerPanelIssue(cleanMessage)) return buildScannerPanelAnswer();
-  if (isScannerAdfIssue(cleanMessage)) return buildScannerAdfAnswer();
-  if (isPowerIssue(cleanMessage)) return buildPowerIssueAnswer();
-  if (isPaperJam(cleanMessage)) return buildPaperJamAnswer();
+  if (isLargeFormatMediaFollowUp(cleanMessage, cleanAnalysisMessage)) return buildLargeFormatMediaAnswer();
+  if (isRobotIssue(cleanAnalysisMessage)) return buildRobotAnswer();
+  if (isSmartGlassesIssue(cleanAnalysisMessage)) return buildSmartGlassesAnswer();
+  if (isPosIssue(cleanAnalysisMessage)) return buildPosAnswer();
+  if (isLabelPrinterIssue(cleanAnalysisMessage)) return buildLabelPrinterAnswer();
+  if (isLargeFormatIssue(cleanAnalysisMessage)) return buildLargeFormatAnswer();
+  if (isLedDisplayIssue(cleanAnalysisMessage)) return buildLedDisplayAnswer();
+  if (isMicrodeviceIssue(cleanAnalysisMessage)) return buildMicrodeviceAnswer();
+  if (isProjectorIssue(cleanAnalysisMessage)) return buildProjectorAnswer();
+  if (isScannerPanelIssue(cleanAnalysisMessage)) return buildScannerPanelAnswer();
+  if (isScannerAdfIssue(cleanAnalysisMessage)) return buildScannerAdfAnswer();
+  if (isPowerIssue(cleanAnalysisMessage)) return buildPowerIssueAnswer();
+  if (isPaperJam(cleanAnalysisMessage)) return buildPaperJamAnswer();
 
   return buildGenericTroubleshootingAnswer(
     cleanMessage || "perangkat Epson Anda",
@@ -584,13 +639,20 @@ const mockAnswer = ({
   contexts,
   intent: providedIntent = null,
   imagePath = null,
+  contextualMessage = "",
 }) => {
+  const analysisMessage = contextualMessage || message || "";
+
+  if (isSecretRequest(message)) {
+    return buildSecretRequestAnswer();
+  }
+
   const arithmetic = IntentService.calculateSimpleArithmetic(message);
   if (arithmetic) {
     return `Hasilnya ${arithmetic.result}. Jika ada pertanyaan troubleshooting Epson, jelaskan gejala mesin atau defect yang muncul agar saya bisa cek knowledge base.`;
   }
 
-  const ruleIntent = IntentService.classifyIntent(message || "");
+  const ruleIntent = IntentService.classifyIntent(analysisMessage || "");
   const intent = ruleIntent === "helpdesk" ? "helpdesk" : (providedIntent || ruleIntent);
 
   if (intent === "greeting") {
@@ -605,49 +667,53 @@ const mockAnswer = ({
     return buildImageFallbackAnswer(message);
   }
 
-  if (isRobotIssue(message)) {
+  if (isLargeFormatMediaFollowUp(message, analysisMessage)) {
+    return buildLargeFormatMediaAnswer();
+  }
+
+  if (isRobotIssue(analysisMessage)) {
     return buildRobotAnswer();
   }
 
-  if (isSmartGlassesIssue(message)) {
+  if (isSmartGlassesIssue(analysisMessage)) {
     return buildSmartGlassesAnswer();
   }
 
-  if (isPosIssue(message)) {
+  if (isPosIssue(analysisMessage)) {
     return buildPosAnswer();
   }
 
-  if (isLabelPrinterIssue(message)) {
+  if (isLabelPrinterIssue(analysisMessage)) {
     return buildLabelPrinterAnswer();
   }
 
-  if (isLargeFormatIssue(message)) {
+  if (isLargeFormatIssue(analysisMessage)) {
     return buildLargeFormatAnswer();
   }
 
-  if (isLedDisplayIssue(message)) {
+  if (isLedDisplayIssue(analysisMessage)) {
     return buildLedDisplayAnswer();
   }
 
-  if (isMicrodeviceIssue(message)) {
+  if (isMicrodeviceIssue(analysisMessage)) {
     return buildMicrodeviceAnswer();
   }
 
-  if (isProjectorIssue(message)) {
+  if (isProjectorIssue(analysisMessage)) {
     return buildProjectorAnswer();
   }
 
-  if (isScannerPanelIssue(message)) {
+  if (isScannerPanelIssue(analysisMessage)) {
     return buildScannerPanelAnswer();
   }
 
   // Intent helpdesk: utamakan artikel knowledge base spesifik bila benar-benar cocok.
-  if (contexts.length && IntentService.hasGroundedContext(message, contexts)) {
-    return buildGroundedMockAnswer({ message, contexts });
+  if (contexts.length && IntentService.hasGroundedContext(analysisMessage, contexts)) {
+    return buildGroundedMockAnswer({ message: analysisMessage, contexts });
   }
 
   // Belum ada artikel spesifik: tetap berikan langkah awal aman + pertanyaan klarifikasi.
-  return buildSafeFallbackAnswer(message);
+  return buildSafeFallbackAnswer(message, analysisMessage);
 };
 
 export const GenerationService = {
@@ -658,10 +724,19 @@ export const GenerationService = {
     imagePath = null,
     intent = null,
     settings = null,
+    contextualMessage = "",
   }) {
     const resolvedSettings = settings || await AiSettingsService.getSettings();
     const runtimeConfig = AiSettingsService.runtimeConfig(resolvedSettings);
     const provider = imagePath ? "gemini_vision" : "deepseek";
+
+    if (isSecretRequest(message)) {
+      return {
+        provider: "mock",
+        text: buildSecretRequestAnswer(),
+        mode: resolvedSettings.mode,
+      };
+    }
 
     try {
       const aiText = provider === "deepseek"
@@ -690,7 +765,7 @@ export const GenerationService = {
 
       return {
         provider: "mock",
-        text: mockAnswer({ message, contexts, intent, imagePath }),
+        text: mockAnswer({ message, contexts, intent, imagePath, contextualMessage }),
         error: error.message,
         mode: resolvedSettings.mode,
       };
@@ -698,7 +773,7 @@ export const GenerationService = {
 
     return {
       provider: "mock",
-      text: mockAnswer({ message, contexts, intent, imagePath }),
+      text: mockAnswer({ message, contexts, intent, imagePath, contextualMessage }),
       mode: resolvedSettings.mode,
     };
   },

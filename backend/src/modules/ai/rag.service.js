@@ -8,12 +8,20 @@ export const RagService = {
     return RetrievalService.searchRelevantChunks(query, limit);
   },
 
-  async generateAnswer({ message, contexts = [], imagePath = null, intent = null }) {
+  async generateAnswer({
+    message,
+    contexts = [],
+    imagePath = null,
+    intent = null,
+    conversationContext = "",
+    contextualMessage = "",
+  }) {
     const settings = await AiSettingsService.getSettings();
     const prompt = PromptService.buildHelpdeskPrompt({
       message,
       contexts,
       intent,
+      conversationContext,
       responseMode: settings.mode,
       responseModeInstruction: AiSettingsService.modeInstruction(settings),
       hasImage: Boolean(imagePath),
@@ -27,6 +35,7 @@ export const RagService = {
       imagePath,
       intent,
       settings,
+      contextualMessage,
     });
   },
 };

@@ -151,6 +151,7 @@ export const PromptService = {
     message,
     contexts = [],
     intent = null,
+    conversationContext = "",
     responseMode = "hemat",
     responseModeInstruction = "",
     hasImage = false,
@@ -168,6 +169,14 @@ export const PromptService = {
       imageHint(hasImage, supportsVision),
       "",
       `Pesan user:\n${message || "User mengunggah gambar tanpa teks. Bantu analisis kemungkinan defect dan langkah awal yang aman."}`,
+      "",
+      conversationContext
+        ? [
+            "Riwayat percakapan terakhir:",
+            conversationContext,
+            "Gunakan riwayat ini untuk memahami pertanyaan lanjutan/follow-up. Jika pesan terbaru memulai topik baru, prioritaskan pesan terbaru.",
+          ].join("\n")
+        : "Riwayat percakapan terakhir: tidak ada.",
       "",
       `Context knowledge base:\n${formatContext(contexts)}`,
     ].join("\n");
