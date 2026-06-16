@@ -130,17 +130,113 @@ const GENERIC_DOMAIN_WORDS = new Set([
 ]);
 
 const TOKEN_SYNONYMS = {
+  adf: ["scanner", "scan", "feed"],
   garis: ["banding", "line"],
   hilang: ["missing"],
   jaringan: ["network"],
   kertas: ["paper"],
-  macet: ["jam"],
+  macet: ["jam", "nyangkut", "tersangkut"],
+  memindai: ["scan", "scanner"],
   miring: ["skew"],
   produksi: ["production"],
   terdeteksi: ["discovered", "discovery"],
   tinta: ["ink"],
   titik: ["dots", "nozzle"],
 };
+
+const ISSUE_TOPICS = {
+  scanner: [
+    "adf",
+    "calibration",
+    "dokumen",
+    "feed",
+    "memindai",
+    "pickup roller",
+    "scan",
+    "scanner",
+    "separation pad",
+  ],
+  network: [
+    "dhcp",
+    "dns",
+    "ethernet",
+    "gateway",
+    "ip",
+    "jaringan",
+    "network",
+    "ping",
+    "print server",
+    "queue",
+    "subnet",
+    "terdeteksi",
+    "wifi",
+  ],
+  printQuality: [
+    "alignment",
+    "banding",
+    "cetak",
+    "cleaning",
+    "cyan",
+    "dots",
+    "garis",
+    "head",
+    "ink",
+    "magenta",
+    "missing",
+    "nozzle",
+    "output",
+    "platen",
+    "print quality",
+    "tinta",
+    "warna",
+    "yellow",
+  ],
+  power: [
+    "daya",
+    "hidup",
+    "listrik",
+    "mati",
+    "menyala",
+    "no power",
+    "nyala",
+    "power",
+    "stopkontak",
+  ],
+};
+
+const normalizeText = (text = "") =>
+  String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const includesTerm = (text, term) => {
+  const normalizedTerm = normalizeText(term);
+  if (!normalizedTerm) return false;
+
+  if (normalizedTerm.includes(" ")) {
+    return text.includes(normalizedTerm);
+  }
+
+  if (normalizedTerm.length <= 3) {
+    return new RegExp(`(^|\\s)${escapeRegExp(normalizedTerm)}(?=\\s|$)`).test(text);
+  }
+
+  return text.includes(normalizedTerm);
+};
+
+const includesAny = (text, words = []) => words.some((word) => includesTerm(text, word));
+
+const contextToText = (context = {}) => [
+  context.chunkText,
+  context.documentTitle,
+  context.document?.title,
+  context.source,
+  context.document?.source,
+].filter(Boolean).join(" ");
 
 const toNumber = (value) => Number(String(value).replace(",", "."));
 
@@ -206,9 +302,7 @@ export const IntentService = {
   },
 
   significantTokens(message = "") {
-    return String(message)
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, " ")
+    return normalizeText(message)
       .split(/\s+/)
       .map((token) => token.trim())
       .filter((token) => token.length >= 3)
@@ -216,27 +310,65 @@ export const IntentService = {
       .filter((token) => !GENERIC_DOMAIN_WORDS.has(token));
   },
 
-  hasGroundedContext(message = "", contexts = []) {
-    if (!contexts.length) return false;
+  classifyIssueTopic(message = "") {
+    const normalized = normalizeText(message);
+    if (!normalized) return null;
+
+    if (includesAny(normalized, ISSUE_TOPICS.scanner)) return "scanner";
+    if (includesAny(normalized, ISSUE_TOPICS.network)) return "network";
+    if (includesAny(normalized, ISSUE_TOPICS.printQuality)) return "printQuality";
+    if (includesAny(normalized, ISSUE_TOPICS.power)) return "power";
+    return null;
+  },
+
+  contextMatchesIssueTopic(message = "", context = {}) {
+    const topic = this.classifyIssueTopic(message);
+    if (!topic) return true;
+
+    const contextText = normalizeText(contextToText(context));
+    if (!contextText) return false;
+
+    const topicWords = ISSUE_TOPICS[topic] || [];
+    if (!topicWords.length) return true;
+
+    return includesAny(contextText, topicWords);
+  },
+
+  contextOverlapScore(message = "", context = {}) {
+    const contextText = normalizeText(contextToText(context));
+    if (!contextText) return 0;
 
     const tokens = this.significantTokens(message);
-    if (!tokens.length) return true;
-
-    const contextText = contexts
-      .map((context) => [
-        context.chunkText,
-        context.documentTitle,
-        context.document?.title,
-        context.source,
-        context.document?.source,
-      ].filter(Boolean).join(" "))
-      .join(" ")
-      .toLowerCase();
-
-    return tokens.some((token) => {
+    const tokenScore = tokens.reduce((score, token) => {
       const candidates = [token, ...(TOKEN_SYNONYMS[token] || [])];
-      return candidates.some((candidate) => contextText.includes(candidate));
-    });
+      return score + (candidates.some((candidate) => includesTerm(contextText, candidate)) ? 1 : 0);
+    }, 0);
+
+    const topic = this.classifyIssueTopic(message);
+    const topicScore = topic && this.contextMatchesIssueTopic(message, context) ? 2 : 0;
+
+    return tokenScore + topicScore;
+  },
+
+  filterGroundedContexts(message = "", contexts = []) {
+    return contexts
+      .map((context) => ({
+        context,
+        relevanceScore: this.contextOverlapScore(message, context),
+      }))
+      .filter(({ context, relevanceScore }) =>
+        relevanceScore > 0 && this.contextMatchesIssueTopic(message, context),
+      )
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .map(({ context, relevanceScore }) => ({
+        ...context,
+        score: Number.isFinite(Number(context.score)) ? context.score : relevanceScore,
+      }));
+  },
+
+  hasGroundedContext(message = "", contexts = []) {
+    if (!contexts.length) return false;
+    return this.filterGroundedContexts(message, contexts).length > 0;
   },
 
   shouldSkipRetrieval(message = "") {

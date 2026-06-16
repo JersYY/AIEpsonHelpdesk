@@ -9,8 +9,37 @@ const normalizeLimit = (limit) => {
   return Math.min(Math.max(Math.trunc(parsed), 1), 20);
 };
 
+const tokenSearch = async (query, limit) => {
+  const tokens = IntentService.significantTokens(query).slice(0, 8);
+  if (!tokens.length) return [];
+
+  const rows = await prisma.knowledgeChunk.findMany({
+    where: {
+      OR: tokens.flatMap((token) => [
+        { chunkText: { contains: token, mode: "insensitive" } },
+        { document: { title: { contains: token, mode: "insensitive" } } },
+      ]),
+    },
+    include: { document: true },
+    orderBy: { createdAt: "desc" },
+    take: Math.max(limit * 4, limit),
+  });
+
+  return IntentService.filterGroundedContexts(
+    query,
+    rows.map((row) => ({
+      ...row,
+      documentTitle: row.document?.title,
+      source: row.document?.source,
+      retrievalMode: "keyword-token",
+    })),
+  ).slice(0, limit);
+};
+
 const keywordSearch = async (query, limit) => {
   const cleanQuery = query?.trim();
+
+  if (!cleanQuery) return [];
 
   if (cleanQuery) {
     try {
@@ -35,50 +64,16 @@ const keywordSearch = async (query, limit) => {
         LIMIT ${limit}
       `;
 
-      if (rows.length) return rows;
-    } catch {
-      const tokens = cleanQuery
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length > 2)
-        .slice(0, 6);
-
-      if (tokens.length) {
-        const rows = await prisma.knowledgeChunk.findMany({
-          where: {
-            OR: tokens.map((token) => ({
-              chunkText: { contains: token, mode: "insensitive" },
-            })),
-          },
-          include: { document: true },
-          orderBy: { createdAt: "desc" },
-          take: limit,
-        });
-
-        if (rows.length) {
-          return rows.map((row) => ({
-            ...row,
-            documentTitle: row.document?.title,
-            source: row.document?.source,
-            retrievalMode: "keyword",
-          }));
-        }
+      if (rows.length) {
+        const groundedRows = IntentService.filterGroundedContexts(cleanQuery, rows);
+        if (groundedRows.length) return groundedRows;
       }
+    } catch {
+      return tokenSearch(cleanQuery, limit);
     }
   }
 
-  const rows = await prisma.knowledgeChunk.findMany({
-    include: { document: true },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
-
-  return rows.map((row) => ({
-    ...row,
-    documentTitle: row.document?.title,
-    source: row.document?.source,
-    retrievalMode: "recent",
-  }));
+  return tokenSearch(cleanQuery, limit);
 };
 
 const semanticSearch = async (query, limit) => {
@@ -138,14 +133,20 @@ export const RetrievalService = {
     const shouldUseSemantic = ["semantic", "hybrid"].includes(aiConfig.rag.mode);
 
     if (shouldUseSemantic) {
-      const semanticRows = await semanticSearch(query, normalizedLimit);
-      if (semanticRows.length && IntentService.hasGroundedContext(query, semanticRows)) {
+      const semanticRows = IntentService.filterGroundedContexts(
+        query,
+        await semanticSearch(query, normalizedLimit),
+      );
+      if (semanticRows.length) {
         return semanticRows;
       }
     }
 
-    const keywordRows = await keywordSearch(query, normalizedLimit);
-    if (keywordRows.length && IntentService.hasGroundedContext(query, keywordRows)) {
+    const keywordRows = IntentService.filterGroundedContexts(
+      query,
+      await keywordSearch(query, normalizedLimit),
+    );
+    if (keywordRows.length) {
       return keywordRows;
     }
 

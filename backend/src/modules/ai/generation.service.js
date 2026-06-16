@@ -12,8 +12,8 @@ const SAFETY_NOTE =
 
 const buildGreetingAnswer = () =>
   [
-    "Silakan jelaskan kendala pada printer, scanner, jaringan, firmware, atau perangkat Epson lain.",
-    "Sertakan gejala, lokasi perangkat, kode error jika ada, dan langkah yang sudah dicoba agar pengecekan lebih tepat.",
+    "Silakan jelaskan kendala perangkat Epson di area kerja Anda, seperti printer, scanner, jaringan, firmware, hardware, atau part.",
+    "Sertakan departemen/area, lokasi perangkat, model/serial atau asset tag, kode error jika ada, dan langkah yang sudah dicoba.",
   ].join(" ");
 
 const buildOutOfScopeAnswer = () =>
@@ -65,9 +65,9 @@ const buildGenericTroubleshootingAnswer = (message) =>
     "4. Pastikan kabel data/jaringan dan konsumabel (tinta, kertas) terpasang dengan baik.",
     "",
     "Mohon informasikan:",
-    "1. Model perangkat Epson Anda.",
-    "2. Kode error atau gejala persis yang muncul (mis. lampu berkedip, bunyi, hasil cetak).",
-    "3. Tindakan apa yang sudah Anda coba sebelumnya?",
+    "1. Departemen/area dan lokasi perangkat.",
+    "2. Model perangkat Epson serta serial number atau asset tag jika tersedia.",
+    "3. Kode error/gejala persis dan tindakan yang sudah dicoba sebelumnya.",
     "",
     SAFETY_NOTE,
   ].join("\n");
@@ -75,9 +75,9 @@ const buildGenericTroubleshootingAnswer = (message) =>
 const buildImageFallbackAnswer = (message = "") => {
   if (isImageIdentityQuestion(message)) {
     return [
-      "Saya belum bisa memastikan tipe atau model printer hanya dari gambar ini.",
+      "Saya belum bisa memastikan tipe atau model perangkat Epson hanya dari gambar ini.",
       "Agar tidak salah identifikasi, mohon kirim foto yang lebih jelas pada bagian label model, panel depan, atau stiker serial number.",
-      "Biasanya informasi model Epson terlihat di bagian depan perangkat, dekat panel tombol, atau pada stiker belakang/bawah unit.",
+      "Biasanya informasi model terlihat di bagian depan perangkat, dekat panel tombol, atau pada stiker belakang/bawah unit.",
     ].join("\n");
   }
 
@@ -114,7 +114,34 @@ const isPowerIssue = (message = "") => {
   return powerWords.some((word) => text.includes(word));
 };
 
+const isScannerAdfIssue = (message = "") => {
+  const text = message.toLowerCase();
+  const scannerWords = ["adf", "memindai", "pemindai", "scan", "scanner"];
+  const issueWords = ["calibration", "error", "feed", "jam", "macet", "miring", "nyangkut", "tersangkut"];
+
+  return (
+    scannerWords.some((word) => text.includes(word))
+    && issueWords.some((word) => text.includes(word))
+  );
+};
+
+const buildScannerAdfAnswer = (referenceTitle = null) => [
+  referenceTitle ? `Acuan saya: ${referenceTitle}.` : "Baik, saya bantu cek masalah scanner/ADF Epson Anda.",
+  "1. Hentikan pekerjaan scan terlebih dahulu agar dokumen tidak makin tersangkut.",
+  "2. Matikan perangkat, lalu keluarkan kertas mengikuti arah feed secara perlahan.",
+  "3. Periksa separation pad, pickup roller, dan jalur kertas ADF dari debu, sobekan kertas, atau benda asing.",
+  "4. Bersihkan paper path ADF dengan hati-hati, lalu coba jalankan calibration scan atau test scan satu lembar.",
+  "5. Jika sensor ADF masih aktif padahal jalur kosong, catat kode/status sensor dan lampirkan foto area feed saat eskalasi.",
+  "",
+  "Mohon informasikan:",
+  "1. Model scanner/perangkat Epson yang digunakan.",
+  "2. Apakah kertas tersangkut di input ADF, tengah jalur, atau area output?",
+  "3. Apakah muncul kode error atau lampu indikator tertentu?",
+].join("\n");
+
 const isPaperJam = (message = "") => {
+  if (isScannerAdfIssue(message)) return false;
+
   const text = message.toLowerCase();
   const jamWords = [
     "kertas macet",
@@ -131,11 +158,26 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   const topContext = contexts[0];
   const title = contextTitle(topContext);
   const text = String(topContext?.chunkText || "").toLowerCase();
+  const userTopic = IntentService.classifyIssueTopic(message);
 
   if (
-    text.includes("banding") ||
-    text.includes("nozzle") ||
-    text.includes("missing dots")
+    userTopic === "scanner" &&
+    (
+      text.includes("adf") ||
+      text.includes("scanner") ||
+      text.includes("scan")
+    )
+  ) {
+    return buildScannerAdfAnswer(title);
+  }
+
+  if (
+    userTopic !== "scanner" &&
+    (
+      text.includes("banding") ||
+      text.includes("nozzle") ||
+      text.includes("missing dots")
+    )
   ) {
     return [
       "Untuk kasus print quality seperti ini, mulai dari pengecekan dasar dulu.",
@@ -146,9 +188,12 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   }
 
   if (
-    text.includes("adf") ||
-    text.includes("scanner") ||
-    text.includes("jam")
+    userTopic !== "network" &&
+    (
+      text.includes("adf") ||
+      text.includes("scanner") ||
+      text.includes("jam")
+    )
   ) {
     return [
       "Untuk masalah ADF atau scanner, hentikan job dulu lalu keluarkan kertas mengikuti arah feed.",
@@ -158,9 +203,12 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
   }
 
   if (
-    text.includes("network") ||
-    text.includes("ip address") ||
-    text.includes("subnet")
+    userTopic !== "scanner" &&
+    (
+      text.includes("network") ||
+      text.includes("ip address") ||
+      text.includes("subnet")
+    )
   ) {
     return [
       "Untuk printer yang tidak terdeteksi di jaringan, cek dari sisi koneksi fisik dan konfigurasi IP dulu.",
@@ -180,6 +228,7 @@ const buildGroundedMockAnswer = ({ message, contexts }) => {
 const buildSafeFallbackAnswer = (message = "") => {
   const cleanMessage = String(message).trim();
 
+  if (isScannerAdfIssue(cleanMessage)) return buildScannerAdfAnswer();
   if (isPowerIssue(cleanMessage)) return buildPowerIssueAnswer();
   if (isPaperJam(cleanMessage)) return buildPaperJamAnswer();
 
