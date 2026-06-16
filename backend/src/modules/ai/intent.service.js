@@ -59,13 +59,16 @@ const HELPDESK_KEYWORDS = [
   "nyala",
   "output",
   "panas",
+  "panel",
   "paper",
   "part",
   "power",
   "print",
   "printer",
+  "responsif",
   "restart",
   "roller",
+  "ruangan",
   "rusak",
   "scan",
   "scanner",
@@ -75,6 +78,8 @@ const HELPDESK_KEYWORDS = [
   "terbakar",
   "tinta",
   "tombol",
+  "lembap",
+  "lembab",
   "troubleshooting",
   "wifi",
   "yellow",
@@ -145,6 +150,19 @@ const TOKEN_SYNONYMS = {
 };
 
 const ISSUE_TOPICS = {
+  scannerPanel: [
+    "button",
+    "keypad",
+    "layar",
+    "lembap",
+    "lembab",
+    "panel",
+    "responsif",
+    "tidak merespon",
+    "tidak responsif",
+    "tombol",
+    "touch",
+  ],
   scanner: [
     "adf",
     "calibration",
@@ -314,6 +332,10 @@ export const IntentService = {
     const normalized = normalizeText(message);
     if (!normalized) return null;
 
+    if (
+      includesAny(normalized, ["scan", "scanner", "pemindai"])
+      && includesAny(normalized, ISSUE_TOPICS.scannerPanel)
+    ) return "scannerPanel";
     if (includesAny(normalized, ISSUE_TOPICS.scanner)) return "scanner";
     if (includesAny(normalized, ISSUE_TOPICS.network)) return "network";
     if (includesAny(normalized, ISSUE_TOPICS.printQuality)) return "printQuality";

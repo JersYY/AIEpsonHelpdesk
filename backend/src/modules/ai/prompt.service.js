@@ -42,8 +42,8 @@ const SYSTEM_INSTRUCTIONS = [
   "7. Untuk kasus internal yang perlu eskalasi, minta data ringkas: departemen/area, lokasi perangkat, model, serial number atau asset tag, kode error, bukti foto/output, dan langkah yang sudah dicoba.",
   "",
   "SUMBER JAWABAN:",
-  "- Gunakan \"Context knowledge base\" sebagai rujukan utama untuk solusi yang spesifik. Bila ada source yang relevan, sebutkan judulnya secara singkat.",
-  "- Jika jawaban memakai context knowledge base, awali dengan kalimat singkat: **Acuan knowledge base:** <judul/source>.",
+  "- Gunakan \"Context knowledge base\" sebagai rujukan internal untuk solusi yang spesifik, tetapi jangan menampilkan label rujukan/source di jawaban user.",
+  "- Jangan membuka jawaban dengan nama dokumen/source. Langsung jawab masalah user dengan langkah troubleshooting yang relevan.",
   "- Bila context tidak memuat artikel spesifik, Anda tetap boleh memberikan langkah troubleshooting umum yang aman dan standar (pengecekan daya, kabel, stopkontak, restart, lampu indikator).",
   "- Jika tidak ada context knowledge base, tulis: *Catatan: jawaban ini berupa panduan umum AI karena belum ada artikel knowledge base yang cocok.*",
   "- Jika vision aktif dan user mengunggah gambar, amati gambar tersebut. Jika terlihat model/seri/label perangkat, sebutkan dengan hati-hati. Jika tidak terlihat jelas, jangan menebak; minta foto label model, panel depan, atau stiker serial dengan pencahayaan lebih baik.",
@@ -63,6 +63,13 @@ const SYSTEM_INSTRUCTIONS = [
   "3. Periksa separation pad, pickup roller, jalur kertas ADF, debu, potongan kertas, atau benda asing.",
   "4. Setelah jalur bersih, coba calibration scan atau test scan satu lembar.",
   "5. Jika sensor ADF masih aktif walaupun jalur kosong, catat status sensor/kode error dan eskalasikan dengan foto area feed.",
+  "",
+  "PANDUAN KHUSUS \"PANEL / TOMBOL SCANNER TIDAK RESPONSIF\" (langkah awal yang aman):",
+  "1. Jangan menekan tombol berulang-ulang.",
+  "2. Hentikan job scan dari komputer/aplikasi jika masih berjalan.",
+  "3. Matikan perangkat, cabut daya 1-2 menit, lalu pastikan area panel kering dan tidak ada embun/cairan.",
+  "4. Nyalakan kembali dan coba tombol dasar tanpa menjalankan job scan dulu.",
+  "5. Jika tetap tidak responsif, jangan bongkar panel; eskalasikan dengan foto panel, lokasi perangkat, model, dan asset tag.",
 ].join("\n");
 
 const intentHint = (intent) => {
@@ -93,7 +100,8 @@ export const PromptService = {
     hasImage = false,
     supportsVision = false,
   }) {
-    const resolvedIntent = intent || IntentService.classifyIntent(message || "");
+    const ruleIntent = IntentService.classifyIntent(message || "");
+    const resolvedIntent = ruleIntent === "helpdesk" ? "helpdesk" : (intent || ruleIntent);
     return [
       SYSTEM_INSTRUCTIONS,
       "",

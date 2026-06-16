@@ -4,6 +4,7 @@ import { ApiError } from "../../utils/apiError.js";
 import { buildConversationSummary, titleFromMessage } from "../../utils/summary.js";
 import { MlService } from "../ml/ml.service.js";
 import { LearningService } from "../ml/learning.service.js";
+import { IntentService } from "../ai/intent.service.js";
 import { RagService } from "./rag.service.js";
 
 const sleep = (ms) => new Promise((resolve) => {
@@ -63,7 +64,7 @@ const ensureUserSession = async (sessionId, user) => {
 // Shared AI pipeline: run ML predictions + RAG + generation for a user message.
 const runAiPipeline = async ({ message, imagePath = null }) => {
   let categoryPrediction = null;
-  let intentPrediction = null;
+  let intentPrediction = message ? IntentService.classifyIntent(message) : null;
 
   if (message) {
     try {
@@ -76,11 +77,11 @@ const runAiPipeline = async ({ message, imagePath = null }) => {
 
     try {
       const intentResult = await MlService.predictIntent(message);
-      if (intentResult.confidence >= 0.5) {
+      if (intentResult.confidence >= 0.5 && intentPrediction !== "helpdesk") {
         intentPrediction = intentResult.label;
       }
     } catch {
-      intentPrediction = null;
+      intentPrediction = IntentService.classifyIntent(message);
     }
   }
 
