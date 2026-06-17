@@ -7,6 +7,40 @@ import { AiSettingsService } from "./settings.service.js";
 const SAFETY_NOTE =
   "Jika tercium bau terbakar, ada asap, kabel rusak, percikan api, atau cairan masuk, segera cabut kabel daya, jangan membongkar perangkat, dan hubungi teknisi/servis resmi sebelum mencoba menyalakannya kembali.";
 
+const NUMBERED_LIST_LINE = /^(\s*)(\d+)([.)])(\s+)/;
+const BULLET_LIST_LINE = /^\s*[-*]\s+/;
+const SECTION_HEADING_LINE = /^\s*(?:\*\*[^*\n]{1,80}\*\*|[^:\n]{1,80}:)\s*$/;
+
+const normalizeNumberedListMarkers = (text = "") => {
+  let nextNumber = 1;
+
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => {
+      const numbered = line.match(NUMBERED_LIST_LINE);
+
+      if (numbered) {
+        const originalNumber = Number(numbered[2]);
+        if (!Number.isInteger(originalNumber) || originalNumber < 1 || originalNumber > 50) {
+          return line;
+        }
+
+        const rest = line.slice(numbered[0].length);
+        const normalized = `${numbered[1]}${nextNumber}${numbered[3]}${numbered[4]}${rest}`;
+        nextNumber += 1;
+        return normalized;
+      }
+
+      const trimmed = line.trim();
+      if (trimmed && (BULLET_LIST_LINE.test(line) || SECTION_HEADING_LINE.test(line))) {
+        nextNumber = 1;
+      }
+
+      return line;
+    })
+    .join("\n");
+};
+
 const buildGreetingAnswer = () =>
   [
     "**Halo, saya Epson AI Helpdesk.**",
@@ -809,7 +843,7 @@ export const GenerationService = {
       if (aiText) {
         return {
           provider,
-          text: aiText,
+          text: normalizeNumberedListMarkers(aiText),
           mode: resolvedSettings.mode,
         };
       }
