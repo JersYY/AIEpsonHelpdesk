@@ -135,6 +135,7 @@ model ChatMessage {
   responseTimeMs      Int?
   aiProvider          String?
   aiMode              String?
+  knowledgeGrounded   Boolean?
   feedback            FeedbackRating?
   feedbackComment     String?         @db.Text
   predictedCategoryId String?

@@ -31,6 +31,7 @@ export const renderMessage = (raw = '') => {
 
   const html = []
   let listType = null // 'ol' | 'ul' | null
+  let orderedIndex = 1
 
   const closeList = () => {
     if (listType) {
@@ -46,11 +47,13 @@ export const renderMessage = (raw = '') => {
 
     if (HORIZONTAL_RULE.test(line)) {
       closeList()
+      orderedIndex = 1
       continue
     }
 
     if (heading) {
       closeList()
+      orderedIndex = 1
       html.push(`<p><strong>${applyInline(heading[1])}</strong></p>`)
       continue
     }
@@ -58,10 +61,11 @@ export const renderMessage = (raw = '') => {
     if (numbered) {
       if (listType !== 'ol') {
         closeList()
-        html.push('<ol>')
+        html.push(`<ol start="${orderedIndex}">`)
         listType = 'ol'
       }
       html.push(`<li>${applyInline(numbered[2])}</li>`)
+      orderedIndex += 1
       continue
     }
 
@@ -79,6 +83,7 @@ export const renderMessage = (raw = '') => {
       if (!listType) html.push('<br/>')
     } else {
       closeList()
+      orderedIndex = 1
       html.push(`<p>${applyInline(line)}</p>`)
     }
   }

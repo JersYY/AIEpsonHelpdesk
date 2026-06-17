@@ -320,6 +320,7 @@ export const ChatService = {
         responseTimeMs,
         aiProvider: answer.provider,
         aiMode: answer.mode,
+        knowledgeGrounded: isKnowledgeGrounded(contexts),
         predictedCategoryId: categoryPrediction?.categoryId || null,
         predictedConfidence: categoryPrediction?.confidence || null,
       },
@@ -333,7 +334,7 @@ export const ChatService = {
     return {
       session: updatedSession,
       userMessage,
-      aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
+      aiMessage,
       contexts,
       provider: answer.provider,
       aiMode: answer.mode,
@@ -551,6 +552,7 @@ export const ChatService = {
         responseTimeMs,
         aiProvider: answer.provider,
         aiMode: answer.mode,
+        knowledgeGrounded: isKnowledgeGrounded(contexts),
         predictedCategoryId: categoryPrediction?.categoryId || null,
         predictedConfidence: categoryPrediction?.confidence || null,
       },
@@ -563,7 +565,7 @@ export const ChatService = {
 
     return {
       session,
-      aiMessage: { ...aiMessage, knowledgeGrounded: isKnowledgeGrounded(contexts) },
+      aiMessage,
       contexts,
       provider: answer.provider,
       aiMode: answer.mode,
