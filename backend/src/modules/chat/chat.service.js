@@ -74,6 +74,10 @@ const FOLLOW_UP_TERMS = [
   "maksudnya",
   "kalau begitu",
   "yang tadi",
+  "bagaimana",
+  "gimana",
+  "cara",
+  "caranya",
 ];
 
 const isLikelyFollowUp = (message = "") => {

@@ -16,7 +16,8 @@ const toChatMessage = (message = {}, fallbackImage = null) => ({
   aiProvider: message.aiProvider || null,
   aiMode: message.aiMode || null,
   feedback: message.feedback || null,
-  showAiSourceNote: false,
+  knowledgeGrounded: message.knowledgeGrounded,
+  showAiSourceNote: message.sender === 'AI' && message.knowledgeGrounded === false,
 })
 
 export const useChatStore = defineStore('chat', {
@@ -74,12 +75,21 @@ export const useChatStore = defineStore('chat', {
       this.temporary = false
       this.loading = true
       try {
+        const currentMessages = new Map(this.messages.filter((m) => m.id).map((m) => [m.id, m]))
         const { data } = await chatService.getSession(id)
         const session = data.data
         this.sessionId = session.id
-        this.messages = (session.messages || []).map((m) => ({
-          ...toChatMessage(m),
-        }))
+        this.messages = (session.messages || []).map((m) => {
+          const next = toChatMessage(m)
+          const current = currentMessages.get(next.id)
+          if (!current) return next
+
+          return {
+            ...next,
+            knowledgeGrounded: next.knowledgeGrounded ?? current.knowledgeGrounded,
+            showAiSourceNote: next.showAiSourceNote || current.showAiSourceNote,
+          }
+        })
       } finally {
         this.loading = false
       }

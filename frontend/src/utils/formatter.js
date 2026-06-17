@@ -20,6 +20,8 @@ const applyInline = (text = '') =>
     .replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>')
 
 const NUMBERED = /^\s*(\d+)[.)]\s+(.*)$/
+const HEADING = /^\s{0,3}#{1,6}\s+(.+)$/
+const HORIZONTAL_RULE = /^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/
 const BULLET = /^\s*[-*•]\s+(.*)$/
 
 // Convert raw AI text into safe formatted HTML.
@@ -38,8 +40,20 @@ export const renderMessage = (raw = '') => {
   }
 
   for (const line of lines) {
+    const heading = line.match(HEADING)
     const numbered = line.match(NUMBERED)
     const bullet = line.match(BULLET)
+
+    if (HORIZONTAL_RULE.test(line)) {
+      closeList()
+      continue
+    }
+
+    if (heading) {
+      closeList()
+      html.push(`<p><strong>${applyInline(heading[1])}</strong></p>`)
+      continue
+    }
 
     if (numbered) {
       if (listType !== 'ol') {
@@ -61,11 +75,10 @@ export const renderMessage = (raw = '') => {
       continue
     }
 
-    closeList()
-
     if (line.trim() === '') {
-      html.push('<br/>')
+      if (!listType) html.push('<br/>')
     } else {
+      closeList()
       html.push(`<p>${applyInline(line)}</p>`)
     }
   }

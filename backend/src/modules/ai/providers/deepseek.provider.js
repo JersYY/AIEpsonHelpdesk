@@ -83,11 +83,15 @@ export const DeepSeekProvider = {
       stream: false,
     };
 
-    if (Number.isFinite(Number(config.maxOutputTokens))) {
-      body.max_tokens = Number(config.maxOutputTokens);
+    const maxOutputTokens = config.maxOutputTokens === null || config.maxOutputTokens === undefined
+      ? null
+      : Number(config.maxOutputTokens);
+
+    if (Number.isFinite(maxOutputTokens) && maxOutputTokens > 0) {
+      body.max_tokens = maxOutputTokens;
     }
 
-    if (config.thinking && config.thinking !== "disabled") {
+    if (config.thinking) {
       body.thinking = { type: config.thinking };
     }
 

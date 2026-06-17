@@ -1,5 +1,11 @@
 import dotenv from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
+const configDir = dirname(fileURLToPath(import.meta.url));
+const backendEnvPath = resolve(configDir, "../../.env");
+
+dotenv.config({ path: backendEnvPath, quiet: true });
 dotenv.config({ quiet: true });
 
 const optionalEnv = (key) => {

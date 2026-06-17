@@ -59,6 +59,19 @@ const buildSecretRequestAnswer = () => [
   "3. Kirim model perangkat, lokasi, asset tag, gejala, kode error, dan langkah yang sudah dicoba.",
 ].join("\n");
 
+const buildAiUnavailableAnswer = () => [
+  "**AI Provider Belum Merespons**",
+  "",
+  "Saya belum bisa membuat jawaban AI penuh karena provider AI sedang tidak tersedia atau request gagal.",
+  "",
+  "**Yang bisa dicek:**",
+  "1. Pastikan API key provider aktif dan model yang dipakai valid.",
+  "2. Cek log backend untuk status/error dari DeepSeek atau Gemini.",
+  "3. Coba ulang pertanyaan setelah backend direstart.",
+  "",
+  "*Catatan: saya tidak menampilkan template troubleshooting agar respons tidak melenceng dari konteks chat.*",
+].join("\n");
+
 // Langkah aman umum untuk printer mati / tidak menyala.
 const buildPowerIssueAnswer = () =>
   [
@@ -758,61 +771,7 @@ const mockAnswer = ({
     return buildImageFallbackAnswer(message);
   }
 
-  if (isLargeFormatMediaFollowUp(message, analysisMessage)) {
-    return buildLargeFormatMediaAnswer();
-  }
-
-  if (isScannerCleaningQuestion(message, analysisMessage)) {
-    return buildScannerCleaningAnswer();
-  }
-
-  if (isScannerMaintenanceQuestion(message, analysisMessage)) {
-    return buildScannerMaintenanceAnswer();
-  }
-
-  if (isRobotIssue(analysisMessage)) {
-    return buildRobotAnswer();
-  }
-
-  if (isSmartGlassesIssue(analysisMessage)) {
-    return buildSmartGlassesAnswer();
-  }
-
-  if (isPosIssue(analysisMessage)) {
-    return buildPosAnswer();
-  }
-
-  if (isLabelPrinterIssue(analysisMessage)) {
-    return buildLabelPrinterAnswer();
-  }
-
-  if (isLargeFormatIssue(analysisMessage)) {
-    return buildLargeFormatAnswer();
-  }
-
-  if (isLedDisplayIssue(analysisMessage)) {
-    return buildLedDisplayAnswer();
-  }
-
-  if (isMicrodeviceIssue(analysisMessage)) {
-    return buildMicrodeviceAnswer();
-  }
-
-  if (isProjectorIssue(analysisMessage)) {
-    return buildProjectorAnswer();
-  }
-
-  if (isScannerPanelIssue(analysisMessage)) {
-    return buildScannerPanelAnswer();
-  }
-
-  // Intent helpdesk: utamakan artikel knowledge base spesifik bila benar-benar cocok.
-  if (contexts.length && IntentService.hasGroundedContext(analysisMessage, contexts)) {
-    return buildGroundedMockAnswer({ message: analysisMessage, contexts });
-  }
-
-  // Belum ada artikel spesifik: tetap berikan langkah awal aman + pertanyaan klarifikasi.
-  return buildSafeFallbackAnswer(message, analysisMessage);
+  return buildAiUnavailableAnswer();
 };
 
 export const GenerationService = {
