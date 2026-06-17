@@ -59,10 +59,10 @@ export const renderMessage = (raw = '') => {
     }
 
     if (numbered) {
-      if (listType !== 'ol') {
+      if (listType !== 'ul') {
         closeList()
-        html.push(`<ol start="${orderedIndex}">`)
-        listType = 'ol'
+        html.push('<ul>')
+        listType = 'ul'
       }
       html.push(`<li>${applyInline(numbered[2])}</li>`)
       orderedIndex += 1
